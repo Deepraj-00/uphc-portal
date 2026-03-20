@@ -255,7 +255,7 @@ useEffect(() => {
 /* ─── HOME ───────────────────────────────────────────────────────────────── */
 function HomeView({ t, setView, D }) {
   const [mobile, setMobile] = useState("");
-  const [patientName, setPatientName] = useState("");
+  
   const [status, setStatus] = useState("");
   const [waitingCount, setWaitingCount] = useState(0);
 
@@ -364,6 +364,7 @@ function BookView({ t, lang, D, setView }) {
   const [step, setStep] = useState(0);
   const [dept, setDept] = useState(null);
   const [mobile, setMobile] = useState("");
+  const [patientName, setPatientName] = useState("");
   const [otp, setOtp] = useState(["","","","","",""]);
   const [otpErr, setOtpErr] = useState("");
   const [vState, setVState] = useState("idle"); // idle|listening|done
