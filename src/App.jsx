@@ -192,12 +192,18 @@ export default function App() {
   const t = L[lang];
 
   const mapToken = tk => ({
-    id: tk.token_number, name: tk.patient_name||`Patient ${tk.patient_mobile?.slice(-4)}`,
-    dept: tk.department, raw: tk.symptoms_raw||"No complaint recorded",
-    clinical: tk.clinical_tags||["Requires assessment"], urgency: tk.urgency||"yellow",
-    time: new Date(tk.created_at).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}),
-    wait: tk.wait_minutes, dbId: tk.id, mobile: tk.patient_mobile, status: tk.status,
-  });
+  id:       tk.token_number   || "Unknown",
+  name:     tk.patient_name   || `Patient ${(tk.patient_mobile||"0000").slice(-4)}`,
+  dept:     tk.department     || "General OPD",
+  raw:      tk.symptoms_raw   || "No complaint recorded",
+  clinical: Array.isArray(tk.clinical_tags) ? tk.clinical_tags : ["Requires assessment"],
+  urgency:  tk.urgency        || "yellow",
+  time:     tk.created_at     ? new Date(tk.created_at).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}) : "--:--",
+  wait:     Number(tk.wait_minutes) || 20,
+  dbId:     tk.id,
+  mobile:   tk.patient_mobile || "",
+  status:   tk.status         || "waiting",
+});
 
   useEffect(() => {
     let channel;
@@ -208,11 +214,17 @@ export default function App() {
         const { data: c } = await sb.from("tokens").select("*").eq("status","called").order("created_at",{ascending:true});
         const { count: done } = await sb.from("tokens").select("*",{count:"exact",head:true}).eq("status","completed");
         const { count: ns } = await sb.from("tokens").select("*",{count:"exact",head:true}).eq("status","noshow");
-        setQueue([...(c||[]),(w||[])].map(mapToken));
+        setQueue([...(c||[]),...(w||[])].map(mapToken));
         setDoneCount((done||0)+(ns||0));
       };
       await load();
-      channel = sb.channel("global").on("postgres_changes",{event:"*",schema:"public",table:"tokens"},load).subscribe();
+      channel = sb.channel("global-v2")
+  .on("postgres_changes", { event: "INSERT", schema: "public", table: "tokens" }, load)
+  .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tokens" }, load)
+  .on("postgres_changes", { event: "DELETE", schema: "public", table: "tokens" }, load)
+  .subscribe((status) => {
+    console.log("Supabase realtime status:", status);
+  });
     })();
     return () => channel?.unsubscribe();
   }, []);
@@ -279,7 +291,8 @@ function HomeView({ t, setView, queue }) {
   const [mobile, setMobile] = useState("");
   const [status, setStatus] = useState("");
   const waiting = queue.filter(q=>q.status==="waiting").length;
-  const avgWait = queue.length ? Math.round(queue.reduce((s,p)=>s+p.wait,0)/queue.length) : 0;
+  const waiting2 = queue.filter(q=>q.status==="waiting");
+  const avgWait = waiting2.length ? Math.round(waiting2.reduce((s,p)=>s+p.wait,0)/waiting2.length) : 0;
 
   const checkToken = () => {
     if (mobile.length < 10) { setStatus("⚠ Enter a valid 10-digit number"); return; }
@@ -915,7 +928,7 @@ function DisplayBoard({ t, queue }) {
   useEffect(()=>{const i=setInterval(()=>setTime(new Date()),1000);return()=>clearInterval(i);},[]);
   const called  = queue.filter(p=>p.status==="called");
   const waiting = queue.filter(p=>p.status==="waiting");
-  const avgWait = queue.length?Math.round(queue.reduce((s,p)=>s+p.wait,0)/queue.length):0;
+  const avgWait = waiting.length ? Math.round(waiting.reduce((s,p)=>s+p.wait,0)/waiting.length) : 0;
 
   return (
     <div style={{ borderRadius:28, overflow:"hidden", minHeight:"86vh", position:"relative", background:"linear-gradient(145deg,#020810 0%,#050D1F 40%,#031118 100%)", border:"1px solid rgba(20,184,166,.15)", boxShadow:"0 24px 80px rgba(0,0,0,.7)" }}>
