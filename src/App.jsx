@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { auth } from './firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 
 /* ─── AI NLP ─────────────────────────────────────────────────────────────── */
 const extractSymptomsAI = async (text, lang) => {
@@ -333,6 +335,7 @@ function BookView({ t, lang, D, setView }) {
   const [step, setStep] = useState(0);
   const [dept, setDept] = useState(null);
   const [mobile, setMobile] = useState("");
+  const [confirmationResult, setConfirmationResult] = useState(null);
   const [otp, setOtp] = useState(["","","","","",""]);
   const [otpErr, setOtpErr] = useState("");
   const [vState, setVState] = useState("idle"); // idle|listening|done
@@ -350,31 +353,41 @@ function BookView({ t, lang, D, setView }) {
   const sendOTP = async () => {
   setOtpErr("");
   try {
-    const res = await fetch('/api/send-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile })
-    });
-    const data = await res.json();
-    if (!data.success) setOtpErr("Failed to send OTP. Try again.");
-  } catch {
-    setOtpErr("Network error. Check your connection.");
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        auth,
+        'recaptcha-container',
+        { size: 'invisible' }
+      );
+    }
+    const result = await signInWithPhoneNumber(
+      auth,
+      `+91${mobile}`,
+      window.recaptchaVerifier
+    );
+    setConfirmationResult(result);
+  } catch (error) {
+    console.error('OTP send error:', error);
+    setOtpErr("Failed to send OTP. Check your number and try again.");
+    if (window.recaptchaVerifier) {
+      window.recaptchaVerifier.clear();
+      window.recaptchaVerifier = null;
+    }
   }
 };
 
   const verifyOTP = async () => {
   setOtpErr("");
+  if (!confirmationResult) {
+    setOtpErr("Please request OTP first.");
+    return;
+  }
   try {
-    const res = await fetch('/api/verify-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile, otp: otp.join('') })
-    });
-    const data = await res.json();
-    if (data.verified) setStep(3);
-    else setOtpErr("Incorrect OTP. Please try again.");
-  } catch {
-    setOtpErr("Network error. Check your connection.");
+    await confirmationResult.confirm(otp.join(''));
+    setStep(3);
+  } catch (error) {
+    console.error('OTP verify error:', error);
+    setOtpErr("Incorrect OTP. Please try again.");
   }
 };
 
@@ -508,7 +521,7 @@ function BookView({ t, lang, D, setView }) {
           <div style={{ background:D.card,borderRadius:18,padding:22,boxShadow:"0 2px 8px rgba(0,0,0,.05)",textAlign:"center" }}>
             <div style={{ width:52,height:52,borderRadius:"50%",background:"#EFF6FF",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,margin:"0 auto 12px" }}>📱</div>
             <p style={{ fontSize:13,color:D.sub,marginBottom:6 }}>{t.s1sent} <b style={{ color:D.txt }}>+91-{mobile}</b></p>
-            <p style={{ fontSize:11,color:"#F59E0B",marginBottom:18,fontWeight:600 }}>Demo OTP: 1 2 3 4 5 6</p>
+            <p style={{ fontSize:11,color:"#059669",marginBottom:18,fontWeight:600 }}>Real OTP sent to your phone via Firebase</p>
             <div style={{ display:"flex",gap:8,justifyContent:"center",marginBottom:14 }}>
               {otp.map((v,i)=>(
                 <input key={i} ref={el=>otpRef.current[i]=el} type="tel" maxLength={1} value={v}
@@ -520,6 +533,7 @@ function BookView({ t, lang, D, setView }) {
             {otpErr&&<p style={{ color:"#DC2626",fontSize:12,marginBottom:10 }}>{otpErr}</p>}
             <button onClick={()=>setStep(1)} style={{ fontSize:12,color:"#3B82F6",background:"none",border:"none",cursor:"pointer" }}>{t.s1resend}</button>
           </div>
+          <div id="recaptcha-container"></div>
           <div style={{ display:"flex",gap:10 }}>
             <button onClick={()=>setStep(1)} style={{ flex:1,padding:"13px",borderRadius:14,background:D.btn2,color:D.txt,fontWeight:700,border:"none",cursor:"pointer" }}>{t.back}</button>
             <button onClick={verifyOTP} style={{ flex:2,padding:"13px",borderRadius:14,background:"#0D2748",color:"#fff",fontWeight:900,border:"none",cursor:"pointer",fontSize:15 }}>{t.s1verify}</button>
