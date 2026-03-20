@@ -116,17 +116,62 @@ export default function App() {
   const [lang, setLang] = useState("EN");
   const [view, setView] = useState("home");
   const [dark, setDark] = useState(false);
-  const [queue, setQueue] = useState(INIT_QUEUE);
+  const [queue, setQueue] = useState([]);
+
+useEffect(() => {
+  const fetchQueue = async () => {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY
+    );
+    const { data } = await supabase
+      .from('tokens')
+      .select('*')
+      .eq('status', 'waiting')
+      .order('created_at', { ascending: true });
+    if (data) setQueue(data.map(t => ({
+      id: t.token_number,
+      name: `Patient ${t.patient_mobile.slice(-4)}`,
+      dept: t.department,
+      raw: t.symptoms_raw || 'No complaint recorded',
+      clinical: t.clinical_tags || ['Requires assessment'],
+      urgency: t.urgency,
+      time: new Date(t.created_at).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),
+      wait: t.wait_minutes,
+      dbId: t.id,
+      mobile: t.patient_mobile
+    })));
+  };
+
+  fetchQueue();
+
+  let subscription;
+  (async () => {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY
+    );
+    subscription = supabase
+      .channel('tokens-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tokens'
+      }, fetchQueue)
+      .subscribe();
+  })();
+
+  return () => {
+    if (subscription) subscription.unsubscribe();
+  };
+}, []);
   const [doneCount, setDoneCount] = useState(14);
   const t = L[lang];
 
   // Real-time queue heartbeat
-  useEffect(() => {
-    const tick = setInterval(() => {
-      setQueue(q => q.map(p => ({ ...p, wait: Math.max(1, p.wait + (Math.random()>.65?1:-1)) })));
-    }, 7000);
-    return () => clearInterval(tick);
-  }, []);
+  
 
   const removePatient = id => { setQueue(q=>q.filter(p=>p.id!==id)); setDoneCount(c=>c+1); };
 
@@ -302,12 +347,36 @@ function BookView({ t, lang, D, setView }) {
 
   const steps = ["Dept","Mobile","OTP","Symptoms","Done"];
 
-  const sendOTP = () => { setOtpErr(""); };
+  const sendOTP = async () => {
+  setOtpErr("");
+  try {
+    const res = await fetch('/api/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile })
+    });
+    const data = await res.json();
+    if (!data.success) setOtpErr("Failed to send OTP. Try again.");
+  } catch {
+    setOtpErr("Network error. Check your connection.");
+  }
+};
 
-  const verifyOTP = () => {
-    if (otp.join("") === "123456") setStep(3);
-    else setOtpErr("Wrong OTP. Demo code: 1 2 3 4 5 6");
-  };
+  const verifyOTP = async () => {
+  setOtpErr("");
+  try {
+    const res = await fetch('/api/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile, otp: otp.join('') })
+    });
+    const data = await res.json();
+    if (data.verified) setStep(3);
+    else setOtpErr("Incorrect OTP. Please try again.");
+  } catch {
+    setOtpErr("Network error. Check your connection.");
+  }
+};
 
   const handleOtp = (i, v) => {
     if (!/^[0-9]?$/.test(v)) return;
@@ -344,6 +413,31 @@ function BookView({ t, lang, D, setView }) {
     }
   };
 
+  const bookToken = async () => {
+  if (!canNext) return;
+  try {
+    const res = await fetch('/api/book-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mobile,
+        department: dept?.label || 'General OPD',
+        symptoms_raw: transcript || selSym.join(', '),
+        clinical_tags: nlp?.clinical_tags || selSym,
+        urgency: nlp?.urgency || 'yellow'
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      tokenNum.current = data.token.token_number;
+      setStep(4);
+    } else {
+      alert('Booking failed. Please try again.');
+    }
+  } catch {
+    alert('Network error. Please try again.');
+  }
+};
   const canNext = nlp || selSym.length > 0;
   const urgColor = { red:"#DC2626", yellow:"#D97706", green:"#059669" }[nlp?.urgency] || "#D97706";
 
@@ -507,7 +601,7 @@ function BookView({ t, lang, D, setView }) {
 
           <div style={{ display:"flex",gap:10 }}>
             <button onClick={()=>setStep(2)} style={{ flex:1,padding:"13px",borderRadius:14,background:D.btn2,color:D.txt,fontWeight:700,border:"none",cursor:"pointer" }}>{t.back}</button>
-            <button onClick={()=>canNext&&setStep(4)} style={{ flex:2,padding:"13px",borderRadius:14,background:canNext?"#0D2748":"#CBD5E1",color:"#fff",fontWeight:900,border:"none",cursor:"pointer",fontSize:15 }}>{t.next}</button>
+            <button onClick={bookToken} style={{ flex:2,padding:"13px",borderRadius:14,background:canNext?"#0D2748":"#CBD5E1",color:"#fff",fontWeight:900,border:"none",cursor:"pointer",fontSize:15 }}>{t.next}</button>
           </div>
         </div>
       )}
