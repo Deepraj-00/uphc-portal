@@ -7,7 +7,8 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const { mobile, department, symptoms_raw, clinical_tags, urgency } = req.body;
+  const { mobile, patient_name, department, symptoms_raw, clinical_tags, urgency } = req.body;
+
   try {
     const { count } = await supabase
       .from('tokens')
@@ -16,52 +17,49 @@ export default async function handler(req, res) {
       .eq('department', department);
 
     const waitMinutes = Math.max(5, (count || 0) * 8);
-    const tokenLetter = department === 'Maternity' ? 'M' :
-                        department === 'Vaccination' ? 'V' :
-                        department === 'Dental' ? 'D' :
-                        department === 'Eye / ENT' ? 'E' :
-                        department === 'Lab / Tests' ? 'L' : 'A';
+
+    const tokenLetter =
+      department === 'Maternity'   ? 'M' :
+      department === 'Vaccination' ? 'V' :
+      department === 'Dental'      ? 'D' :
+      department === 'Eye / ENT'   ? 'E' :
+      department === 'Lab / Tests' ? 'L' : 'A';
+
     const { count: totalToday } = await supabase
       .from('tokens')
       .select('*', { count: 'exact', head: true });
+
     const tokenNumber = `${tokenLetter}-${(totalToday || 0) + 1}`;
+
+    const counter = `${
+      tokenLetter === 'A' ? 'OPD' :
+      tokenLetter === 'M' ? 'MAT' :
+      tokenLetter === 'V' ? 'VAX' :
+      tokenLetter === 'D' ? 'DNT' :
+      tokenLetter === 'E' ? 'EYE' : 'LAB'
+    } ${Math.floor(Math.random() * 3) + 1}`;
 
     const { data: token, error } = await supabase
       .from('tokens')
       .insert({
-        token_number: tokenNumber,
+        token_number:   tokenNumber,
         patient_mobile: mobile,
+        patient_name:   patient_name || 'Patient',
         department,
         symptoms_raw,
         clinical_tags,
-        urgency: urgency || 'yellow',
-        wait_minutes: waitMinutes,
-        counter: `${tokenLetter === 'A' ? 'OPD' : department.slice(0,3)} ${Math.floor(Math.random() * 3) + 1}`,
-        doctor: 'Dr. Shah'
+        urgency:        urgency || 'yellow',
+        wait_minutes:   waitMinutes,
+        counter,
+        doctor:         'Dr. Shah'
       })
       .select()
       .single();
 
     if (error) throw error;
 
-    await fetch(`https://control.msg91.com/api/v5/flow/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'authkey': process.env.MSG91_AUTH_KEY
-      },
-      body: JSON.stringify({
-        flow_id: process.env.MSG91_FLOW_ID,
-        sender: 'UPHCGJ',
-        mobiles: `91${mobile}`,
-        TOKEN: tokenNumber,
-        DEPT: department,
-        WAIT: waitMinutes.toString(),
-        COUNTER: token.counter
-      })
-    });
-
     res.status(200).json({ success: true, token });
+
   } catch (error) {
     res.status(500).json({ error: 'Booking failed', details: error.message });
   }

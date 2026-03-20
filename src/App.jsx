@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { auth } from './firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+
+
 
 /* ─── AI NLP ─────────────────────────────────────────────────────────────── */
 const extractSymptomsAI = async (text, lang) => {
@@ -134,7 +134,7 @@ useEffect(() => {
       .order('created_at', { ascending: true });
     if (data) setQueue(data.map(t => ({
       id: t.token_number,
-      name: `Patient ${t.patient_mobile.slice(-4)}`,
+      name: t.patient_name || `Patient ${t.patient_mobile.slice(-4)}`,
       dept: t.department,
       raw: t.symptoms_raw || 'No complaint recorded',
       clinical: t.clinical_tags || ['Requires assessment'],
@@ -255,7 +255,36 @@ useEffect(() => {
 /* ─── HOME ───────────────────────────────────────────────────────────────── */
 function HomeView({ t, setView, D }) {
   const [mobile, setMobile] = useState("");
+  const [patientName, setPatientName] = useState("");
   const [status, setStatus] = useState("");
+  const [waitingCount, setWaitingCount] = useState(0);
+
+useEffect(() => {
+  const init = async () => {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY
+    );
+    const getCount = async () => {
+      const { count } = await supabase
+        .from('tokens')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'waiting');
+      setWaitingCount(count || 0);
+    };
+    getCount();
+    supabase
+      .channel('home-waiting')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tokens'
+      }, getCount)
+      .subscribe();
+  };
+  init();
+}, []);
 
   return (
     <div className="su" style={{ display:"flex",flexDirection:"column",gap:14 }}>
@@ -269,7 +298,7 @@ function HomeView({ t, setView, D }) {
         <div style={{ display:"flex",justifyContent:"center",gap:8,marginTop:12 }}>
           <span style={{ background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600 }}>🟢 Open Now</span>
           <span style={{ background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600 }}>⏳ ~22 min avg</span>
-          <span style={{ background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600 }}>👥 8 waiting</span>
+          <span style={{ background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600 }}>👥 {waitingCount} waiting</span>
         </div>
       </div>
 
@@ -335,7 +364,6 @@ function BookView({ t, lang, D, setView }) {
   const [step, setStep] = useState(0);
   const [dept, setDept] = useState(null);
   const [mobile, setMobile] = useState("");
-  const [confirmationResult, setConfirmationResult] = useState(null);
   const [otp, setOtp] = useState(["","","","","",""]);
   const [otpErr, setOtpErr] = useState("");
   const [vState, setVState] = useState("idle"); // idle|listening|done
@@ -350,44 +378,17 @@ function BookView({ t, lang, D, setView }) {
 
   const steps = ["Dept","Mobile","OTP","Symptoms","Done"];
 
-  const sendOTP = async () => {
+  const sendOTP = () => {
   setOtpErr("");
-  try {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        'recaptcha-container',
-        { size: 'invisible' }
-      );
-    }
-    const result = await signInWithPhoneNumber(
-      auth,
-      `+91${mobile}`,
-      window.recaptchaVerifier
-    );
-    setConfirmationResult(result);
-  } catch (error) {
-    console.error('OTP send error:', error);
-    setOtpErr("Failed to send OTP. Check your number and try again.");
-    if (window.recaptchaVerifier) {
-      window.recaptchaVerifier.clear();
-      window.recaptchaVerifier = null;
-    }
-  }
+  setStep(2);
 };
 
-  const verifyOTP = async () => {
+  const verifyOTP = () => {
   setOtpErr("");
-  if (!confirmationResult) {
-    setOtpErr("Please request OTP first.");
-    return;
-  }
-  try {
-    await confirmationResult.confirm(otp.join(''));
+  if (otp.join('') === '123456') {
     setStep(3);
-  } catch (error) {
-    console.error('OTP verify error:', error);
-    setOtpErr("Incorrect OTP. Please try again.");
+  } else {
+    setOtpErr("Incorrect OTP. Please use 123456");
   }
 };
 
@@ -433,12 +434,13 @@ function BookView({ t, lang, D, setView }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        mobile,
-        department: dept?.label || 'General OPD',
-        symptoms_raw: transcript || selSym.join(', '),
-        clinical_tags: nlp?.clinical_tags || selSym,
-        urgency: nlp?.urgency || 'yellow'
-      })
+  mobile,
+  patient_name: patientName,
+  department: dept?.label || 'General OPD',
+  symptoms_raw: transcript || selSym.join(', '),
+  clinical_tags: nlp?.clinical_tags || selSym,
+  urgency: nlp?.urgency || 'yellow'
+})
     });
     const data = await res.json();
     if (data.success) {
@@ -491,6 +493,18 @@ function BookView({ t, lang, D, setView }) {
       {step===1&&(
         <div className="fa" style={{ display:"flex",flexDirection:"column",gap:14 }}>
           <h2 style={{ fontSize:18,fontWeight:900,color:D.txt }}>{t.s1title}</h2>
+          <div style={{ background:D.card,borderRadius:18,padding:20,boxShadow:"0 2px 8px rgba(0,0,0,.05)",marginBottom:14 }}>
+  <label style={{ display:"block",fontSize:13,fontWeight:700,color:D.txt,marginBottom:8 }}>
+    👤 Full Name
+  </label>
+  <input
+    type="text"
+    value={patientName}
+    onChange={e => setPatientName(e.target.value)}
+    placeholder="Enter your full name"
+    style={{ width:"100%",padding:"12px 14px",fontSize:15,fontWeight:600,border:`2px solid ${patientName ? '#14B8A6' : D.bdr}`,borderRadius:12,outline:"none",background:D.inp,color:D.txt,transition:"border-color .2s" }}
+  />
+</div>
           <div style={{ background:D.card,borderRadius:18,padding:20,boxShadow:"0 2px 8px rgba(0,0,0,.05)" }}>
             <div style={{ display:"flex",alignItems:"center",border:`2px solid ${mobile?'#14B8A6':D.bdr}`,borderRadius:14,overflow:"hidden",marginBottom:14,background:D.inp,transition:"border-color .2s" }}>
               <span style={{ padding:"0 12px",fontSize:13,color:D.sub,fontWeight:600,borderRight:`2px solid ${D.bdr}`,alignSelf:"stretch",display:"flex",alignItems:"center" }}>+91</span>
@@ -509,7 +523,7 @@ function BookView({ t, lang, D, setView }) {
           </div>
           <div style={{ display:"flex",gap:10 }}>
             <button onClick={()=>setStep(0)} style={{ flex:1,padding:"13px",borderRadius:14,background:D.btn2,color:D.txt,fontWeight:700,border:"none",cursor:"pointer" }}>{t.back}</button>
-            <button onClick={()=>{ if(mobile.length>=10){sendOTP();setStep(2);} }} style={{ flex:2,padding:"13px",borderRadius:14,background:mobile.length>=10?"#0D2748":"#CBD5E1",color:"#fff",fontWeight:900,border:"none",cursor:"pointer",fontSize:15 }}>{t.next}</button>
+            <button onClick={()=>{ if(mobile.length>=10 && patientName.trim()){sendOTP();} }} style={{ flex:2,padding:"13px",borderRadius:14,background:(mobile.length>=10&&patientName.trim())?"#0D2748":"#CBD5E1",color:"#fff",fontWeight:900,border:"none",cursor:"pointer",fontSize:15 }}>{t.next}</button>
           </div>
         </div>
       )}
@@ -521,7 +535,7 @@ function BookView({ t, lang, D, setView }) {
           <div style={{ background:D.card,borderRadius:18,padding:22,boxShadow:"0 2px 8px rgba(0,0,0,.05)",textAlign:"center" }}>
             <div style={{ width:52,height:52,borderRadius:"50%",background:"#EFF6FF",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,margin:"0 auto 12px" }}>📱</div>
             <p style={{ fontSize:13,color:D.sub,marginBottom:6 }}>{t.s1sent} <b style={{ color:D.txt }}>+91-{mobile}</b></p>
-            <p style={{ fontSize:11,color:"#059669",marginBottom:18,fontWeight:600 }}>Real OTP sent to your phone via Firebase</p>
+            <p style={{ fontSize:11,color:"#F59E0B",marginBottom:18,fontWeight:600 }}>Demo OTP: 1 2 3 4 5 6</p>
             <div style={{ display:"flex",gap:8,justifyContent:"center",marginBottom:14 }}>
               {otp.map((v,i)=>(
                 <input key={i} ref={el=>otpRef.current[i]=el} type="tel" maxLength={1} value={v}
@@ -533,7 +547,6 @@ function BookView({ t, lang, D, setView }) {
             {otpErr&&<p style={{ color:"#DC2626",fontSize:12,marginBottom:10 }}>{otpErr}</p>}
             <button onClick={()=>setStep(1)} style={{ fontSize:12,color:"#3B82F6",background:"none",border:"none",cursor:"pointer" }}>{t.s1resend}</button>
           </div>
-          <div id="recaptcha-container"></div>
           <div style={{ display:"flex",gap:10 }}>
             <button onClick={()=>setStep(1)} style={{ flex:1,padding:"13px",borderRadius:14,background:D.btn2,color:D.txt,fontWeight:700,border:"none",cursor:"pointer" }}>{t.back}</button>
             <button onClick={verifyOTP} style={{ flex:2,padding:"13px",borderRadius:14,background:"#0D2748",color:"#fff",fontWeight:900,border:"none",cursor:"pointer",fontSize:15 }}>{t.s1verify}</button>
