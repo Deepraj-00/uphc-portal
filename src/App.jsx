@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 /* ─── SUPABASE SINGLETON ─────────────────────────────────────────────────── */
 let _sb = null;
@@ -22,8 +22,233 @@ const extractSymptomsAI = async (text, lang) => {
   } catch { return { clinical_tags:["Requires assessment"], urgency:"yellow", department:"General OPD", summary:text }; }
 };
 
+/* ─── INDIAN MEDICINES DATABASE ──────────────────────────────────────────── */
+const MEDICINES = [
+  // Analgesics & Antipyretics
+  {name:"Paracetamol",strengths:["125mg","250mg","500mg","650mg","1000mg"],type:"Tab/Syp"},
+  {name:"Ibuprofen",strengths:["200mg","400mg","600mg","800mg"],type:"Tab"},
+  {name:"Diclofenac",strengths:["25mg","50mg","75mg","100mg"],type:"Tab/Gel"},
+  {name:"Naproxen",strengths:["250mg","500mg"],type:"Tab"},
+  {name:"Aspirin",strengths:["75mg","150mg","325mg","650mg"],type:"Tab"},
+  {name:"Mefenamic Acid",strengths:["250mg","500mg"],type:"Tab"},
+  {name:"Ketorolac",strengths:["10mg","30mg"],type:"Tab/Inj"},
+  {name:"Tramadol",strengths:["50mg","100mg"],type:"Tab/Cap"},
+  {name:"Aceclofenac",strengths:["100mg"],type:"Tab"},
+  {name:"Nimesulide",strengths:["100mg"],type:"Tab"},
+  // Antibiotics
+  {name:"Amoxicillin",strengths:["250mg","500mg","875mg"],type:"Cap/Syp"},
+  {name:"Amoxicillin + Clavulanate",strengths:["375mg","625mg","1000mg"],type:"Tab"},
+  {name:"Ampicillin",strengths:["250mg","500mg"],type:"Cap/Inj"},
+  {name:"Azithromycin",strengths:["250mg","500mg"],type:"Tab"},
+  {name:"Clarithromycin",strengths:["250mg","500mg"],type:"Tab"},
+  {name:"Erythromycin",strengths:["250mg","500mg"],type:"Tab/Syp"},
+  {name:"Ciprofloxacin",strengths:["250mg","500mg","750mg"],type:"Tab"},
+  {name:"Levofloxacin",strengths:["250mg","500mg","750mg"],type:"Tab"},
+  {name:"Ofloxacin",strengths:["100mg","200mg","400mg"],type:"Tab"},
+  {name:"Norfloxacin",strengths:["400mg"],type:"Tab"},
+  {name:"Doxycycline",strengths:["100mg","200mg"],type:"Cap"},
+  {name:"Tetracycline",strengths:["250mg","500mg"],type:"Cap"},
+  {name:"Metronidazole",strengths:["200mg","400mg","500mg"],type:"Tab/Syp"},
+  {name:"Tinidazole",strengths:["500mg","1000mg"],type:"Tab"},
+  {name:"Cefixime",strengths:["100mg","200mg","400mg"],type:"Tab/Syp"},
+  {name:"Cefpodoxime",strengths:["100mg","200mg"],type:"Tab"},
+  {name:"Ceftriaxone",strengths:["250mg","500mg","1g"],type:"Inj"},
+  {name:"Cefuroxime",strengths:["250mg","500mg"],type:"Tab"},
+  {name:"Cotrimoxazole",strengths:["480mg","960mg"],type:"Tab/Syp"},
+  {name:"Clindamycin",strengths:["150mg","300mg"],type:"Cap"},
+  {name:"Linezolid",strengths:["600mg"],type:"Tab"},
+  {name:"Nitrofurantoin",strengths:["50mg","100mg"],type:"Cap"},
+  // Antifungals
+  {name:"Fluconazole",strengths:["50mg","100mg","150mg","200mg"],type:"Cap"},
+  {name:"Itraconazole",strengths:["100mg","200mg"],type:"Cap"},
+  {name:"Clotrimazole",strengths:["1%","2%"],type:"Cream/Lotion"},
+  {name:"Ketoconazole",strengths:["200mg","2%"],type:"Tab/Cream"},
+  {name:"Terbinafine",strengths:["250mg","1%"],type:"Tab/Cream"},
+  {name:"Nystatin",strengths:["100000IU"],type:"Tab/Syp"},
+  // Antivirals
+  {name:"Acyclovir",strengths:["200mg","400mg","800mg"],type:"Tab/Cream"},
+  {name:"Oseltamivir",strengths:["30mg","45mg","75mg"],type:"Cap"},
+  {name:"Valacyclovir",strengths:["500mg","1000mg"],type:"Tab"},
+  // Antiparasitics
+  {name:"Albendazole",strengths:["200mg","400mg"],type:"Tab/Syp"},
+  {name:"Mebendazole",strengths:["100mg","500mg"],type:"Tab/Syp"},
+  {name:"Ivermectin",strengths:["3mg","6mg","12mg"],type:"Tab"},
+  {name:"Chloroquine",strengths:["150mg","500mg"],type:"Tab"},
+  {name:"Hydroxychloroquine",strengths:["200mg","400mg"],type:"Tab"},
+  {name:"Primaquine",strengths:["2.5mg","7.5mg"],type:"Tab"},
+  // Antihypertensives
+  {name:"Amlodipine",strengths:["2.5mg","5mg","10mg"],type:"Tab"},
+  {name:"Atenolol",strengths:["25mg","50mg","100mg"],type:"Tab"},
+  {name:"Metoprolol",strengths:["25mg","50mg","100mg"],type:"Tab"},
+  {name:"Enalapril",strengths:["2.5mg","5mg","10mg","20mg"],type:"Tab"},
+  {name:"Ramipril",strengths:["1.25mg","2.5mg","5mg","10mg"],type:"Cap"},
+  {name:"Losartan",strengths:["25mg","50mg","100mg"],type:"Tab"},
+  {name:"Telmisartan",strengths:["20mg","40mg","80mg"],type:"Tab"},
+  {name:"Hydrochlorothiazide",strengths:["12.5mg","25mg"],type:"Tab"},
+  {name:"Furosemide",strengths:["20mg","40mg","80mg"],type:"Tab/Inj"},
+  {name:"Nifedipine",strengths:["5mg","10mg","20mg","30mg"],type:"Tab/Cap"},
+  {name:"Clonidine",strengths:["100mcg","150mcg"],type:"Tab"},
+  {name:"Spironolactone",strengths:["25mg","50mg","100mg"],type:"Tab"},
+  // Antidiabetics
+  {name:"Metformin",strengths:["250mg","500mg","750mg","1000mg"],type:"Tab"},
+  {name:"Glibenclamide",strengths:["2.5mg","5mg"],type:"Tab"},
+  {name:"Glimepiride",strengths:["1mg","2mg","3mg","4mg"],type:"Tab"},
+  {name:"Gliclazide",strengths:["40mg","80mg","30mg MR"],type:"Tab"},
+  {name:"Pioglitazone",strengths:["7.5mg","15mg","30mg"],type:"Tab"},
+  {name:"Voglibose",strengths:["0.2mg","0.3mg"],type:"Tab"},
+  {name:"Sitagliptin",strengths:["25mg","50mg","100mg"],type:"Tab"},
+  {name:"Dapagliflozin",strengths:["5mg","10mg"],type:"Tab"},
+  {name:"Insulin Regular",strengths:["40IU/mL","100IU/mL"],type:"Inj"},
+  {name:"Insulin NPH",strengths:["40IU/mL","100IU/mL"],type:"Inj"},
+  // Respiratory
+  {name:"Salbutamol",strengths:["2mg","4mg","100mcg inhaler"],type:"Tab/Inhaler/Syp"},
+  {name:"Terbutaline",strengths:["2.5mg","5mg"],type:"Tab/Inj"},
+  {name:"Theophylline",strengths:["100mg","200mg","300mg"],type:"Tab"},
+  {name:"Montelukast",strengths:["4mg","5mg","10mg"],type:"Tab/Chewable"},
+  {name:"Budesonide",strengths:["100mcg","200mcg","400mcg"],type:"Inhaler"},
+  {name:"Fluticasone",strengths:["50mcg","100mcg","250mcg"],type:"Inhaler"},
+  {name:"Ipratropium",strengths:["20mcg","40mcg"],type:"Inhaler"},
+  {name:"Formoterol",strengths:["6mcg","12mcg"],type:"Inhaler"},
+  {name:"Tiotropium",strengths:["9mcg","18mcg"],type:"Inhaler/Cap"},
+  {name:"Dextromethorphan",strengths:["10mg","15mg"],type:"Syp"},
+  {name:"Guaifenesin",strengths:["100mg","200mg"],type:"Syp/Tab"},
+  {name:"Ambroxol",strengths:["15mg","30mg","75mg"],type:"Tab/Syp"},
+  {name:"Bromhexine",strengths:["4mg","8mg"],type:"Tab/Syp"},
+  // Antihistamines
+  {name:"Cetirizine",strengths:["5mg","10mg"],type:"Tab/Syp"},
+  {name:"Levocetirizine",strengths:["2.5mg","5mg"],type:"Tab/Syp"},
+  {name:"Fexofenadine",strengths:["60mg","120mg","180mg"],type:"Tab"},
+  {name:"Loratadine",strengths:["10mg"],type:"Tab/Syp"},
+  {name:"Desloratadine",strengths:["2.5mg","5mg"],type:"Tab"},
+  {name:"Chlorpheniramine",strengths:["2mg","4mg"],type:"Tab/Syp"},
+  {name:"Hydroxyzine",strengths:["10mg","25mg"],type:"Tab"},
+  {name:"Promethazine",strengths:["10mg","25mg"],type:"Tab/Syp"},
+  // GI
+  {name:"Omeprazole",strengths:["10mg","20mg","40mg"],type:"Cap"},
+  {name:"Pantoprazole",strengths:["20mg","40mg"],type:"Tab"},
+  {name:"Rabeprazole",strengths:["10mg","20mg"],type:"Tab"},
+  {name:"Esomeprazole",strengths:["20mg","40mg"],type:"Cap"},
+  {name:"Ranitidine",strengths:["75mg","150mg","300mg"],type:"Tab"},
+  {name:"Famotidine",strengths:["20mg","40mg"],type:"Tab"},
+  {name:"Domperidone",strengths:["10mg"],type:"Tab/Syp"},
+  {name:"Metoclopramide",strengths:["5mg","10mg"],type:"Tab/Syp/Inj"},
+  {name:"Ondansetron",strengths:["4mg","8mg"],type:"Tab/Syp/Inj"},
+  {name:"Dicyclomine",strengths:["10mg","20mg"],type:"Tab/Syp/Inj"},
+  {name:"Hyoscine",strengths:["10mg","20mg"],type:"Tab"},
+  {name:"Loperamide",strengths:["2mg"],type:"Cap"},
+  {name:"ORS",strengths:["1 sachet in 200mL water"],type:"Sachet"},
+  {name:"Zinc Sulphate",strengths:["10mg","20mg"],type:"Tab/Syp"},
+  {name:"Lactulose",strengths:["3.35g/5mL"],type:"Syp"},
+  {name:"Bisacodyl",strengths:["5mg","10mg"],type:"Tab/Suppository"},
+  {name:"Activated Charcoal",strengths:["250mg"],type:"Cap"},
+  {name:"Sucralfate",strengths:["1g"],type:"Tab/Syp"},
+  {name:"Aluminium Hydroxide + Magnesium Hydroxide",strengths:["Regular","Forte"],type:"Tab/Syp"},
+  // Vitamins & Supplements
+  {name:"Vitamin B Complex",strengths:["Regular"],type:"Tab"},
+  {name:"Vitamin B12",strengths:["500mcg","1000mcg","1500mcg"],type:"Tab/Inj"},
+  {name:"Vitamin C",strengths:["250mg","500mg","1000mg"],type:"Tab"},
+  {name:"Vitamin D3",strengths:["1000IU","2000IU","60000IU"],type:"Tab/Drop/Cap"},
+  {name:"Calcium + Vitamin D3",strengths:["500mg+250IU","1000mg+500IU"],type:"Tab"},
+  {name:"Folic Acid",strengths:["400mcg","500mcg","1mg","5mg"],type:"Tab"},
+  {name:"Iron (Ferrous Sulphate)",strengths:["150mg","200mg"],type:"Tab/Syp"},
+  {name:"Ferrous Ascorbate",strengths:["100mg","150mg"],type:"Tab"},
+  {name:"Multivitamin",strengths:["Regular"],type:"Tab/Cap/Syp"},
+  {name:"Zinc",strengths:["10mg","20mg","50mg"],type:"Tab/Syp"},
+  {name:"Magnesium",strengths:["250mg","500mg"],type:"Tab"},
+  // Steroids
+  {name:"Prednisolone",strengths:["5mg","10mg","20mg","40mg"],type:"Tab"},
+  {name:"Dexamethasone",strengths:["0.5mg","4mg","8mg"],type:"Tab/Inj"},
+  {name:"Methylprednisolone",strengths:["4mg","8mg","16mg","32mg"],type:"Tab/Inj"},
+  {name:"Hydrocortisone",strengths:["10mg","20mg","100mg"],type:"Tab/Inj/Cream"},
+  {name:"Betamethasone",strengths:["0.1%"],type:"Cream/Lotion"},
+  {name:"Triamcinolone",strengths:["0.1%"],type:"Cream/Oint"},
+  // Dermatology
+  {name:"Mupirocin",strengths:["2%"],type:"Cream/Oint"},
+  {name:"Fusidic Acid",strengths:["2%"],type:"Cream"},
+  {name:"Calamine Lotion",strengths:["Regular"],type:"Lotion"},
+  {name:"Permethrin",strengths:["1%","5%"],type:"Cream/Lotion"},
+  {name:"Salicylic Acid",strengths:["2%","6%","12%"],type:"Cream/Gel"},
+  {name:"Silver Sulfadiazine",strengths:["1%"],type:"Cream"},
+  {name:"Povidone Iodine",strengths:["5%","10%"],type:"Solution/Ointment"},
+  // CNS
+  {name:"Diazepam",strengths:["2mg","5mg","10mg"],type:"Tab/Inj"},
+  {name:"Lorazepam",strengths:["0.5mg","1mg","2mg"],type:"Tab"},
+  {name:"Alprazolam",strengths:["0.25mg","0.5mg","1mg"],type:"Tab"},
+  {name:"Clonazepam",strengths:["0.25mg","0.5mg","1mg","2mg"],type:"Tab"},
+  {name:"Phenobarbitone",strengths:["30mg","60mg"],type:"Tab"},
+  {name:"Phenytoin",strengths:["50mg","100mg","300mg"],type:"Cap/Tab"},
+  {name:"Carbamazepine",strengths:["100mg","200mg","400mg"],type:"Tab"},
+  {name:"Valproic Acid",strengths:["200mg","500mg"],type:"Tab/Syp"},
+  {name:"Levetiracetam",strengths:["250mg","500mg","750mg","1000mg"],type:"Tab"},
+  {name:"Amitriptyline",strengths:["10mg","25mg","50mg","75mg"],type:"Tab"},
+  {name:"Fluoxetine",strengths:["10mg","20mg","40mg"],type:"Cap"},
+  {name:"Sertraline",strengths:["25mg","50mg","100mg"],type:"Tab"},
+  {name:"Escitalopram",strengths:["5mg","10mg","20mg"],type:"Tab"},
+  {name:"Haloperidol",strengths:["0.5mg","1mg","5mg","10mg"],type:"Tab"},
+  {name:"Risperidone",strengths:["0.5mg","1mg","2mg","3mg","4mg"],type:"Tab"},
+  {name:"Olanzapine",strengths:["2.5mg","5mg","10mg"],type:"Tab"},
+  // Eye/ENT
+  {name:"Ciprofloxacin Eye Drops",strengths:["0.3%"],type:"Eye Drops"},
+  {name:"Chloramphenicol Eye Drops",strengths:["0.5%","1%"],type:"Eye Drops"},
+  {name:"Tobramycin Eye Drops",strengths:["0.3%"],type:"Eye Drops"},
+  {name:"Dexamethasone Eye Drops",strengths:["0.1%"],type:"Eye Drops"},
+  {name:"Timolol Eye Drops",strengths:["0.25%","0.5%"],type:"Eye Drops"},
+  {name:"Latanoprost Eye Drops",strengths:["0.005%"],type:"Eye Drops"},
+  {name:"Xylometazoline Nasal Drops",strengths:["0.05%","0.1%"],type:"Nasal Drops"},
+  {name:"Beclomethasone Nasal Spray",strengths:["50mcg"],type:"Nasal Spray"},
+  {name:"Fluticasone Nasal Spray",strengths:["50mcg"],type:"Nasal Spray"},
+  {name:"Otosporin Ear Drops",strengths:["Regular"],type:"Ear Drops"},
+  // Cardiac
+  {name:"Digoxin",strengths:["0.0625mg","0.125mg","0.25mg"],type:"Tab"},
+  {name:"Atorvastatin",strengths:["10mg","20mg","40mg","80mg"],type:"Tab"},
+  {name:"Rosuvastatin",strengths:["5mg","10mg","20mg","40mg"],type:"Tab"},
+  {name:"Clopidogrel",strengths:["75mg","150mg","300mg"],type:"Tab"},
+  {name:"Warfarin",strengths:["1mg","2mg","5mg"],type:"Tab"},
+  {name:"Isosorbide Dinitrate",strengths:["5mg","10mg","20mg"],type:"Tab"},
+  {name:"Nitroglycerin",strengths:["0.5mg","2.6mg","6.4mg"],type:"Tab/Spray"},
+  {name:"Carvedilol",strengths:["3.125mg","6.25mg","12.5mg","25mg"],type:"Tab"},
+  {name:"Bisoprolol",strengths:["2.5mg","5mg","10mg"],type:"Tab"},
+  // Thyroid
+  {name:"Levothyroxine",strengths:["12.5mcg","25mcg","50mcg","75mcg","100mcg"],type:"Tab"},
+  {name:"Carbimazole",strengths:["5mg","10mg","20mg"],type:"Tab"},
+  {name:"Propylthiouracil",strengths:["50mg","100mg"],type:"Tab"},
+  // Immunization
+  {name:"OPV (Oral Polio Vaccine)",strengths:["2 drops"],type:"Oral"},
+  {name:"BCG Vaccine",strengths:["0.1mL"],type:"Inj"},
+  {name:"Hepatitis B Vaccine",strengths:["0.5mL","1mL"],type:"Inj"},
+  {name:"MMR Vaccine",strengths:["0.5mL"],type:"Inj"},
+  {name:"DPT Vaccine",strengths:["0.5mL"],type:"Inj"},
+  {name:"Typhoid Vaccine",strengths:["0.5mL"],type:"Inj"},
+  {name:"Tetanus Toxoid",strengths:["0.5mL"],type:"Inj"},
+  // Others
+  {name:"Chlorhexidine",strengths:["0.12%","0.2%","2%","4%"],type:"Solution/Gel"},
+  {name:"Glycerine",strengths:["Pure"],type:"Liquid/Suppository"},
+  {name:"Liquid Paraffin",strengths:["Pure"],type:"Liquid"},
+  {name:"Normal Saline",strengths:["0.9%","0.45%"],type:"Solution/Nasal"},
+  {name:"Dextrose",strengths:["5%","10%","25%","50%"],type:"Solution"},
+  {name:"Ringer Lactate",strengths:["Regular"],type:"Solution"},
+  {name:"Urea Cream",strengths:["10%","20%","40%"],type:"Cream"},
+  {name:"Aloe Vera Gel",strengths:["Regular"],type:"Gel"},
+  {name:"Antacid",strengths:["Regular","Forte"],type:"Tab/Syp"},
+];
+
+const FREQUENCIES = [
+  { id:"OD",   label:"OD",   desc:"Once daily" },
+  { id:"BD",   label:"BD",   desc:"Twice daily" },
+  { id:"TID",  label:"TID",  desc:"Three times a day" },
+  { id:"QID",  label:"QID",  desc:"Four times a day" },
+  { id:"SOS",  label:"SOS",  desc:"If needed" },
+  { id:"STAT", label:"STAT", desc:"Immediately" },
+  { id:"HS",   label:"HS",   desc:"At bedtime" },
+  { id:"OW",   label:"OW",   desc:"Once a week" },
+  { id:"EOD",  label:"EOD",  desc:"Every other day" },
+];
+const DURATIONS = ["1 day","2 days","3 days","4 days","5 days","1 week","10 days","2 weeks","1 month","2 months","3 months","Continuous","As directed"];
+const TIMINGS   = ["Before food","After food","With food","Empty stomach","With milk","With water","As directed"];
+const ROUTES    = ["Oral","Topical","Nasal","Eye","Ear","Injection","Inhaler","Sublingual","Rectal"];
+
 /* ─── CONSTANTS ──────────────────────────────────────────────────────────── */
-const DEPTS = [
+const ALL_DEPTS = [
   { id:"opd", label:"General OPD",  icon:"🩺", grad:"linear-gradient(135deg,#1E40AF,#3B82F6)" },
   { id:"mat", label:"Maternity",    icon:"🤰", grad:"linear-gradient(135deg,#7C3AED,#A78BFA)" },
   { id:"vax", label:"Vaccination",  icon:"💉", grad:"linear-gradient(135deg,#065F46,#10B981)" },
@@ -31,19 +256,20 @@ const DEPTS = [
   { id:"eye", label:"Eye / ENT",    icon:"👁",  grad:"linear-gradient(135deg,#155E75,#06B6D4)" },
   { id:"lab", label:"Lab / Tests",  icon:"🧪", grad:"linear-gradient(135deg,#9F1239,#F43F5E)" },
 ];
-const DEPTS_LIST = ["General OPD","Maternity","Vaccination","Dental","Eye / ENT","Lab / Tests"];
-const DEPT_COLORS = {"General OPD":"#3B82F6","Maternity":"#A78BFA","Vaccination":"#10B981","Dental":"#F59E0B","Eye / ENT":"#06B6D4","Lab / Tests":"#F43F5E"};
-const SYM_ICONS = ["🤒","😮‍💨","🦴","🤰","💉","❓"];
+const DEPTS_LIST   = ["General OPD","Maternity","Vaccination","Dental","Eye / ENT","Lab / Tests"];
+const DEPT_COLORS  = {"General OPD":"#3B82F6","Maternity":"#A78BFA","Vaccination":"#10B981","Dental":"#F59E0B","Eye / ENT":"#06B6D4","Lab / Tests":"#F43F5E"};
+const SYM_ICONS    = ["🤒","😮‍💨","🦴","🤰","💉","❓"];
 const TC = {
   red:    { badge:"#DC2626", border:"rgba(248,113,113,.5)", label:"URGENT"   },
   yellow: { badge:"#D97706", border:"rgba(252,211,77,.5)",  label:"STANDARD" },
   green:  { badge:"#059669", border:"rgba(110,231,183,.5)", label:"ROUTINE"  },
 };
 
+/* ─── LANGUAGES ──────────────────────────────────────────────────────────── */
 const L = {
-  EN:{ welcome:"Welcome to UPHC",tagline:"Urban Primary Health Centre — Ahmedabad",tapSpeak:"Tap to Speak",describe:"Describe how you are feeling",bookManual:"Book Manually",tapType:"Tap / Type",waBook:"Book on WhatsApp",smsBook:"No Internet? SMS 'BOOK'",checkStatus:"Check Token Status",enterMobile:"Mobile number",checkBtn:"Check",s1title:"Your Details",s1otp:"Verify Identity",s1sent:"OTP sent to",s1verify:"Verify OTP",s1resend:"Resend OTP",s2title:"Describe Your Symptoms",s3title:"Booking Confirmed!",holdSpeak:"Hold to Speak",searchSym:"Search symptoms…",tokenSent:"Token sent via SMS & WhatsApp",notifyMsg:"We'll notify you when it's your turn",waitTime:"Est. Wait",mins:"mins",callIn:"Call In",noShow:"No Show",done:"Done",dashboard:"Staff Dashboard",feedback:"Feedback",analytics:"Analytics",totalWait:"Waiting",avgWait:"Avg Wait",doneToday:"Done Today",symptoms:["Fever","Cough","Body Ache","Pregnancy","Vaccine","Other"],next:"Continue →",back:"← Back",listening:"Listening…",processing:"AI analyzing…",chooseDept:"Select Department",printToken:"Print Token",navHome:"Home",navBook:"Book",navChat:"Chat",navDash:"Dashboard",navDisplay:"Display",navFeedback:"Feedback",rateExp:"Rate Your Visit",submitFeedback:"Submit Feedback",feedbackThanks:"Thank You!",voiceNA:"Voice not supported. Use Chrome.",install:"Add to Home Screen",installSub:"Works offline — no app store",nowServing:"Now Serving",nextTokens:"Next in Queue" },
-  GU:{ welcome:"UPHC માં આપનું સ્વાગત",tagline:"અર્બન પ્રાઇમરી હેલ્થ સેન્ટર — અમદાવાદ",tapSpeak:"બોલવા ટેપ કરો",describe:"તમે કેવું અનુભવો છો",bookManual:"જાતે બુક કરો",tapType:"ટેપ / ટાઇપ",waBook:"WhatsApp પર બુક",smsBook:"ઇન્ટ. નથી? SMS",checkStatus:"ટોકન સ્ટેટસ",enterMobile:"મોબાઇલ",checkBtn:"ચેક",s1title:"તમારી વિગત",s1otp:"OTP ચકાસો",s1sent:"OTP મોકલ્યો",s1verify:"ચકાસો",s1resend:"ફરી મોકલો",s2title:"તકલીફ જણાવો",s3title:"બુકિંગ થઈ ગઈ!",holdSpeak:"દબાવી રાખો",searchSym:"શોધો…",tokenSent:"ટોકન મોકલ્યો",notifyMsg:"વારો આવ્યે જાણ કરીશું",waitTime:"રાહ",mins:"મિ",callIn:"બોલાવો",noShow:"ગેરહ.",done:"પૂર્ણ",dashboard:"ડેશ",feedback:"પ્ર.",analytics:"વિ.",totalWait:"રાહ",avgWait:"સ.ભ",doneToday:"આજે",symptoms:["તાવ","ઉધ.","દર્દ","ગર્ભ","રસી","અન્ય"],next:"આગળ →",back:"← પાછળ",listening:"સાંભળે…",processing:"AI…",chooseDept:"વિભાગ",printToken:"છાપો",navHome:"હોમ",navBook:"બુક",navChat:"ચેટ",navDash:"ડેશ",navDisplay:"ડિ.",navFeedback:"રેટ",rateExp:"અનુભવ",submitFeedback:"સ્વીકારો",feedbackThanks:"આભાર!",voiceNA:"Chrome",install:"હોમ સ્ક્રીન",installSub:"ઓફલાઇન",nowServing:"સેવા",nextTokens:"આગળ" },
-  HI:{ welcome:"UPHC में आपका स्वागत",tagline:"अर्बन प्राइमरी हेल्थ सेंटर — अहमदाबाद",tapSpeak:"बोलने के लिए दबाएं",describe:"अपनी तकलीफ बताएं",bookManual:"खुद बुक करें",tapType:"दबाएं / टाइप",waBook:"WhatsApp पर बुक",smsBook:"इंटरनेट नहीं? SMS",checkStatus:"टोकन स्टेटस",enterMobile:"मोबाइल",checkBtn:"जांचें",s1title:"आपकी जानकारी",s1otp:"OTP सत्यापित",s1sent:"OTP भेजा",s1verify:"सत्यापित करें",s1resend:"दोबारा भेजें",s2title:"लक्षण बताएं",s3title:"बुकिंग हो गई!",holdSpeak:"दबाकर बोलें",searchSym:"खोजें…",tokenSent:"टोकन भेजा",notifyMsg:"बारी पर सूचित करेंगे",waitTime:"प्रतीक्षा",mins:"मि",callIn:"बुलाएं",noShow:"अनु.",done:"पूर्ण",dashboard:"डैश",feedback:"प्र.",analytics:"आं.",totalWait:"प्र.",avgWait:"औसत",doneToday:"आज",symptoms:["बुखार","खांसी","दर्द","गर्भ","टीका","अन्य"],next:"आगे →",back:"← वापस",listening:"सुन रहा…",processing:"AI…",chooseDept:"विभाग",printToken:"प्रिंट",navHome:"होम",navBook:"बुक",navChat:"चैट",navDash:"डैश",navDisplay:"डि.",navFeedback:"रेट",rateExp:"रेट करें",submitFeedback:"जमा करें",feedbackThanks:"धन्यवाद!",voiceNA:"Chrome",install:"होम स्क्रीन",installSub:"ऑफलाइन",nowServing:"सेवा",nextTokens:"अगले" },
+  EN:{ welcome:"Welcome to UPHC",tagline:"Urban Primary Health Centre — Ahmedabad",tapSpeak:"Tap to Speak",describe:"Describe how you are feeling",bookManual:"Book Manually",tapType:"Tap / Type",waBook:"Book on WhatsApp",smsBook:"No Internet? SMS 'BOOK'",checkStatus:"Check Token Status",enterMobile:"Mobile number",checkBtn:"Check",s1title:"Your Details",s1otp:"Verify Identity",s1sent:"OTP sent to",s1verify:"Verify OTP",s1resend:"Resend OTP",s2title:"Describe Your Symptoms",s3title:"Booking Confirmed!",holdSpeak:"Hold to Speak",searchSym:"Search symptoms…",tokenSent:"Token sent via SMS & WhatsApp",notifyMsg:"We'll notify you when it's your turn",waitTime:"Est. Wait",mins:"mins",callIn:"Call In",noShow:"No Show",done:"Done",dashboard:"Staff Dashboard",feedback:"Feedback",analytics:"Analytics",totalWait:"Waiting",avgWait:"Avg Wait",doneToday:"Done Today",symptoms:["Fever","Cough","Body Ache","Pregnancy","Vaccine","Other"],next:"Continue →",back:"← Back",listening:"Listening…",processing:"AI analyzing…",chooseDept:"Select Department",printToken:"Print Token",navHome:"Home",navBook:"Book",navChat:"Chat",navDash:"Dashboard",navDisplay:"Display",navFeedback:"Feedback",rateExp:"Rate Your Visit",submitFeedback:"Submit Feedback",feedbackThanks:"Thank You!",voiceNA:"Voice not supported. Use Chrome.",install:"Add to Home Screen",installSub:"Works offline — no app store",nowServing:"Now Serving",nextTokens:"Next in Queue",notAvail:"Not Available" },
+  GU:{ welcome:"UPHC માં આપનું સ્વાગત",tagline:"અર્બન પ્રાઇમરી હેલ્થ સેન્ટર — અમદાવાદ",tapSpeak:"બોલવા ટેપ કરો",describe:"તમે કેવું અનુભવો છો",bookManual:"જાતે બુક કરો",tapType:"ટેપ / ટાઇપ",waBook:"WhatsApp પર બુક",smsBook:"ઇન્ટ. નથી? SMS",checkStatus:"ટોકન સ્ટેટસ",enterMobile:"મોબાઇલ",checkBtn:"ચેક",s1title:"તમારી વિગત",s1otp:"OTP ચકાસો",s1sent:"OTP મોકલ્યો",s1verify:"ચકાસો",s1resend:"ફરી મોકલો",s2title:"તકલીફ જણાવો",s3title:"બુકિંગ થઈ ગઈ!",holdSpeak:"દબાવી રાખો",searchSym:"શોધો…",tokenSent:"ટોકન મોકલ્યો",notifyMsg:"વારો આવ્યે જાણ કરીશું",waitTime:"રાહ",mins:"મિ",callIn:"બોલાવો",noShow:"ગેરહ.",done:"પૂર્ણ",dashboard:"ડેશ",feedback:"પ્ર.",analytics:"વિ.",totalWait:"રાહ",avgWait:"સ.ભ",doneToday:"આજે",symptoms:["તાવ","ઉધ.","દર્દ","ગર્ભ","રસી","અન્ય"],next:"આગળ →",back:"← પાછળ",listening:"સાંભળે…",processing:"AI…",chooseDept:"વિભાગ",printToken:"છાપો",navHome:"હોમ",navBook:"બુક",navChat:"ચેટ",navDash:"ડેશ",navDisplay:"ડિ.",navFeedback:"રેટ",rateExp:"અનુભવ",submitFeedback:"સ્વીકારો",feedbackThanks:"આભાર!",voiceNA:"Chrome",install:"હોમ સ્ક્રીન",installSub:"ઓફલાઇન",nowServing:"સેવા",nextTokens:"આગળ",notAvail:"ઉપલબ્ધ નથી" },
+  HI:{ welcome:"UPHC में आपका स्वागत",tagline:"अर्बन प्राइमरी हेल्थ सेंटर — अहमदाबाद",tapSpeak:"बोलने के लिए दबाएं",describe:"अपनी तकलीफ बताएं",bookManual:"खुद बुक करें",tapType:"दबाएं / टाइप",waBook:"WhatsApp पर बुक",smsBook:"इंटरनेट नहीं? SMS",checkStatus:"टोकन स्टेटस",enterMobile:"मोबाइल",checkBtn:"जांचें",s1title:"आपकी जानकारी",s1otp:"OTP सत्यापित",s1sent:"OTP भेजा",s1verify:"सत्यापित करें",s1resend:"दोबारा भेजें",s2title:"लक्षण बताएं",s3title:"बुकिंग हो गई!",holdSpeak:"दबाकर बोलें",searchSym:"खोजें…",tokenSent:"टोकन भेजा",notifyMsg:"बारी पर सूचित करेंगे",waitTime:"प्रतीक्षा",mins:"मि",callIn:"बुलाएं",noShow:"अनु.",done:"पूर्ण",dashboard:"डैश",feedback:"प्र.",analytics:"आं.",totalWait:"प्र.",avgWait:"औसत",doneToday:"आज",symptoms:["बुखार","खांसी","दर्द","गर्भ","टीका","अन्य"],next:"आगे →",back:"← वापस",listening:"सुन रहा…",processing:"AI…",chooseDept:"विभाग",printToken:"प्रिंट",navHome:"होम",navBook:"बुक",navChat:"चैट",navDash:"डैश",navDisplay:"डि.",navFeedback:"रेट",rateExp:"रेट करें",submitFeedback:"जमा करें",feedbackThanks:"धन्यवाद!",voiceNA:"Chrome",install:"होम स्क्रीन",installSub:"ऑफलाइन",nowServing:"सेवा",nextTokens:"अगले",notAvail:"उपलब्ध नहीं" },
 };
 
 /* ─── GLOBAL CSS ─────────────────────────────────────────────────────────── */
@@ -95,6 +321,8 @@ const GLOBAL_CSS = `
   .input-glass:focus{outline:none;border-color:rgba(20,184,166,.6);background:rgba(255,255,255,.12);box-shadow:0 0 0 3px rgba(20,184,166,.15)}
   .select-glass{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;backdrop-filter:blur(12px)}
   .select-glass option{background:#050D1F;color:#fff}
+  .med-suggestion:hover{background:rgba(20,184,166,.15)!important}
+  .rx-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px;margin-bottom:10px;position:relative}
 `;
 
 /* ─── MEDICAL BACKGROUND ─────────────────────────────────────────────────── */
@@ -109,8 +337,8 @@ const MedicalBackground = () => (
       <g opacity=".7">{Array.from({length:10}).map((_,i)=>(<g key={i}><ellipse cx={60} cy={80+i*60} rx={30} ry={8} fill="none" stroke="#14B8A6" strokeWidth="1.5" transform={`rotate(${i*15},60,${80+i*60})`}/><ellipse cx={60} cy={110+i*60} rx={30} ry={8} fill="none" stroke="#3B82F6" strokeWidth="1.5" transform={`rotate(${-i*15},60,${110+i*60})`}/></g>))}</g>
       <g opacity=".6">{Array.from({length:10}).map((_,i)=>(<g key={i}><ellipse cx={1340} cy={80+i*60} rx={30} ry={8} fill="none" stroke="#A78BFA" strokeWidth="1.5" transform={`rotate(${i*15},1340,${80+i*60})`}/><ellipse cx={1340} cy={110+i*60} rx={30} ry={8} fill="none" stroke="#F43F5E" strokeWidth="1.5" transform={`rotate(${-i*15},1340,${110+i*60})`}/></g>))}</g>
       {[[200,150],[800,100],[1100,200],[400,750],[1000,750],[650,80]].map(([x,y],i)=>(<g key={i} opacity={.4+i*.08}><rect x={x-4} y={y-14} width={8} height={28} rx={2} fill="none" stroke="#14B8A6" strokeWidth="1.5"/><rect x={x-14} y={y-4} width={28} height={8} rx={2} fill="none" stroke="#14B8A6" strokeWidth="1.5"/></g>))}
-      <circle cx={1200} cy={200} r={80}  fill="none" stroke="#14B8A6" strokeWidth="1"   strokeDasharray="8 4" opacity=".4"/>
-      <circle cx={200}  cy={700} r={70}  fill="none" stroke="#3B82F6" strokeWidth="1"   strokeDasharray="6 4" opacity=".4"/>
+      <circle cx={1200} cy={200} r={80} fill="none" stroke="#14B8A6" strokeWidth="1" strokeDasharray="8 4" opacity=".4"/>
+      <circle cx={200}  cy={700} r={70} fill="none" stroke="#3B82F6" strokeWidth="1" strokeDasharray="6 4" opacity=".4"/>
       <defs><pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,.025)" strokeWidth="1"/></pattern></defs>
       <rect width="1400" height="900" fill="url(#grid)"/>
     </svg>
@@ -119,13 +347,44 @@ const MedicalBackground = () => (
   </div>
 );
 
-/* ─── GLASS CARD ─────────────────────────────────────────────────────────── */
 const GCard = ({ children, style={}, className="" }) => (
   <div className={`glass-card ${className}`} style={{ borderRadius:24, padding:22, ...style }}>{children}</div>
 );
 
-/* ─── TODAY ──────────────────────────────────────────────────────────────── */
 const getToday = () => new Date().toISOString().split("T")[0];
+
+/* ─── HOOK: Active Departments ───────────────────────────────────────────── */
+function useActiveDepts() {
+  const [activeDepts, setActiveDepts] = useState(new Set(DEPTS_LIST));
+  const [openCount, setOpenCount]     = useState(DEPTS_LIST.length);
+
+  const refresh = useCallback(async () => {
+    try {
+      const r = await fetch("/api/counters");
+      const d = await r.json();
+      if (d.counters) {
+        const active = new Set(d.counters.filter(c=>c.active).map(c=>c.department));
+        setActiveDepts(active);
+        setOpenCount(active.size);
+      }
+    } catch { /* keep defaults */ }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    // Also subscribe to realtime counter changes
+    let channel;
+    (async () => {
+      const sb = await getSB();
+      channel = sb.channel("counters-watch")
+        .on("postgres_changes",{event:"*",schema:"public",table:"counters"},refresh)
+        .subscribe();
+    })();
+    return () => channel?.unsubscribe();
+  }, [refresh]);
+
+  return { activeDepts, openCount };
+}
 
 /* ─── ROOT APP ───────────────────────────────────────────────────────────── */
 export default function App() {
@@ -136,6 +395,7 @@ export default function App() {
   const [staffAuth, setStaffAuth] = useState(() => {
     try { return sessionStorage.getItem("uphc_staff") === "true"; } catch { return false; }
   });
+  const { activeDepts, openCount } = useActiveDepts();
   const t = L[lang];
 
   const mapToken = tk => ({
@@ -170,11 +430,11 @@ export default function App() {
         setDoneCount((done||0)+(ns||0));
       };
       await load();
-      channel = sb.channel("global-v3")
+      channel = sb.channel("global-v4")
         .on("postgres_changes",{event:"INSERT",schema:"public",table:"tokens"},load)
         .on("postgres_changes",{event:"UPDATE",schema:"public",table:"tokens"},load)
         .on("postgres_changes",{event:"DELETE",schema:"public",table:"tokens"},load)
-        .subscribe(s => console.log("Realtime:",s));
+        .subscribe(s=>console.log("RT:",s));
     })();
     return () => channel?.unsubscribe();
   }, []);
@@ -193,8 +453,6 @@ export default function App() {
     <div style={{ minHeight:"100vh",fontFamily:"'Inter','Noto Sans',sans-serif",position:"relative",color:"#fff" }}>
       <style>{GLOBAL_CSS}</style>
       <MedicalBackground/>
-
-      {/* HEADER */}
       <header className="np glass-dark" style={{ position:"sticky",top:0,zIndex:200,borderBottom:"1px solid rgba(255,255,255,.08)",borderRadius:0 }}>
         <div style={{ maxWidth:1200,margin:"0 auto",padding:"10px 16px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap" }}>
           <div style={{ display:"flex",alignItems:"center",gap:10,flexShrink:0 }}>
@@ -206,7 +464,7 @@ export default function App() {
           </div>
           <nav style={{ display:"flex",gap:3,flex:1,justifyContent:"center",flexWrap:"wrap" }}>
             {[["home","navHome"],["book","navBook"],["chat","navChat"],["dash","navDash"],["display","navDisplay"],["feedback","navFeedback"],
-              ...(staffAuth ? [["admin","⚙ Admin"]] : [])
+              ...(staffAuth?[["admin","⚙ Admin"]]:[])
             ].map(([v,k])=>(
               <button key={v} onClick={()=>setView(v)} className="liquid-btn"
                 style={{ padding:"6px 12px",borderRadius:10,fontSize:11,fontWeight:700,border:"1px solid rgba(255,255,255,.12)",
@@ -234,11 +492,11 @@ export default function App() {
       </header>
 
       <main style={{ maxWidth:view==="display"?1400:(view==="dash"||view==="admin")?1200:520,margin:"0 auto",padding:"20px 14px 64px",position:"relative",zIndex:10 }}>
-        {view==="home"     && <HomeView     t={t} setView={setView} queue={queue}/>}
-        {view==="book"     && <BookView     t={t} lang={lang} setView={setView}/>}
+        {view==="home"     && <HomeView     t={t} setView={setView} queue={queue} openCount={openCount}/>}
+        {view==="book"     && <BookView     t={t} lang={lang} setView={setView} activeDepts={activeDepts}/>}
         {view==="chat"     && <ChatView/>}
         {view==="dash"     && (staffAuth ? <DashView t={t} queue={queue} doneCount={doneCount} updateStatus={updateStatus}/> : <StaffLogin onLogin={handleStaffLogin} onSuccess={()=>setView("dash")}/>)}
-        {view==="display"  && <DisplayBoard t={t} queue={queue}/>}
+        {view==="display"  && <DisplayBoard t={t} queue={queue} openCount={openCount}/>}
         {view==="feedback" && <FeedbackView t={t}/>}
         {view==="admin"    && (staffAuth ? <AdminView/> : <StaffLogin onLogin={handleStaffLogin} onSuccess={()=>setView("admin")}/>)}
       </main>
@@ -248,10 +506,9 @@ export default function App() {
 
 /* ─── STAFF LOGIN ────────────────────────────────────────────────────────── */
 function StaffLogin({ onLogin, onSuccess }) {
-  const [pw, setPw]       = useState("");
-  const [err, setErr]     = useState("");
+  const [pw, setPw]         = useState("");
+  const [err, setErr]       = useState("");
   const [loading, setLoading] = useState(false);
-
   const login = async () => {
     if (!pw) { setErr("Please enter password"); return; }
     setLoading(true); setErr("");
@@ -263,7 +520,6 @@ function StaffLogin({ onLogin, onSuccess }) {
     } catch { setErr("Network error. Please try again."); }
     finally { setLoading(false); }
   };
-
   return (
     <div className="slide-up" style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"60vh",gap:20 }}>
       <div style={{ textAlign:"center",marginBottom:8 }}>
@@ -282,58 +538,281 @@ function StaffLogin({ onLogin, onSuccess }) {
         </button>
         <p style={{ fontSize:11,color:"rgba(255,255,255,.3)",textAlign:"center",marginTop:14,lineHeight:1.8 }}>
           Default: <span style={{ color:"#F5A623",fontWeight:700 }}>uphc2024</span><br/>
-          Change via <span style={{ color:"#14B8A6" }}>STAFF_PASSWORD</span> in Vercel env vars
+          Change via <span style={{ color:"#14B8A6" }}>STAFF_PASSWORD</span> in Vercel
         </p>
       </GCard>
     </div>
   );
 }
 
+/* ─── PRESCRIPTION BUILDER ───────────────────────────────────────────────── */
+function PrescriptionBuilder({ value, onChange }) {
+  const [search, setSearch]       = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [showDrop, setShowDrop]   = useState(false);
+  const [selected, setSelected]   = useState(null);
+  const [strength, setStrength]   = useState("");
+  const [freq, setFreq]           = useState("BD");
+  const [duration, setDuration]   = useState("3 days");
+  const [timing, setTiming]       = useState("After food");
+  const [route, setRoute]         = useState("Oral");
+  const [items, setItems]         = useState([]);
+  const [notes, setNotes]         = useState(value?.notes||"");
+  const searchRef = useRef(null);
+
+  // Parse existing items from value
+  useEffect(() => {
+    if (value?.items) setItems(value.items);
+    if (value?.notes !== undefined) setNotes(value.notes);
+  }, []);
+
+  // Notify parent on changes
+  useEffect(() => {
+    onChange({ items, notes });
+  }, [items, notes]);
+
+  const handleSearch = (q) => {
+    setSearch(q);
+    if (q.length < 2) { setSuggestions([]); setShowDrop(false); return; }
+    const filtered = MEDICINES.filter(m => m.name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+    setSuggestions(filtered);
+    setShowDrop(true);
+  };
+
+  const selectMed = (med) => {
+    setSelected(med);
+    setSearch(med.name);
+    setStrength(med.strengths[0]);
+    setSuggestions([]);
+    setShowDrop(false);
+  };
+
+  const addItem = () => {
+    if (!selected) return;
+    const item = {
+      id: Date.now(),
+      name: selected.name,
+      type: selected.type,
+      strength,
+      freq,
+      duration,
+      timing,
+      route,
+    };
+    setItems(prev=>[...prev,item]);
+    setSearch(""); setSelected(null); setStrength(""); setFreq("BD"); setDuration("3 days"); setTiming("After food"); setRoute("Oral");
+    searchRef.current?.focus();
+  };
+
+  const removeItem = (id) => setItems(prev=>prev.filter(i=>i.id!==id));
+
+  const freqLabel = (f) => FREQUENCIES.find(x=>x.id===f)?.desc || f;
+
+  return (
+    <div>
+      {/* Medicine Search */}
+      <div style={{ position:"relative",marginBottom:14 }}>
+        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:8,textTransform:"uppercase",letterSpacing:1 }}>💊 Search Medicine</label>
+        <input ref={searchRef} value={search} onChange={e=>handleSearch(e.target.value)}
+          onFocus={()=>search.length>=2&&setShowDrop(true)}
+          onBlur={()=>setTimeout(()=>setShowDrop(false),200)}
+          placeholder="Type medicine name (e.g. Paracetamol, Amoxicillin…)" className="input-glass"
+          style={{ width:"100%",padding:"12px 14px",borderRadius:14,fontSize:14,border:"1px solid rgba(255,255,255,.2)" }}/>
+        {showDrop && suggestions.length > 0 && (
+          <div style={{ position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"rgba(5,13,31,.97)",border:"1px solid rgba(255,255,255,.15)",borderRadius:14,overflow:"hidden",boxShadow:"0 16px 48px rgba(0,0,0,.6)",marginTop:4 }}>
+            {suggestions.map(med=>(
+              <div key={med.name} className="med-suggestion" onMouseDown={()=>selectMed(med)}
+                style={{ padding:"10px 16px",cursor:"pointer",borderBottom:"1px solid rgba(255,255,255,.06)",transition:"background .15s" }}>
+                <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+                  <span style={{ fontSize:13,fontWeight:700,color:"#fff" }}>{med.name}</span>
+                  <span className="chip" style={{ background:"rgba(20,184,166,.15)",color:"#14B8A6",border:"1px solid rgba(20,184,166,.2)" }}>{med.type}</span>
+                </div>
+                <div style={{ display:"flex",gap:4,flexWrap:"wrap",marginTop:5 }}>
+                  {med.strengths.map(s=>(
+                    <span key={s} style={{ fontSize:10,color:"rgba(255,255,255,.5)",background:"rgba(255,255,255,.05)",padding:"2px 7px",borderRadius:10 }}>{s}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Configure medicine if selected */}
+      {selected && (
+        <div className="fade-in" style={{ background:"rgba(20,184,166,.08)",border:"1px solid rgba(20,184,166,.25)",borderRadius:18,padding:16,marginBottom:14 }}>
+          <p style={{ fontSize:12,fontWeight:700,color:"#14B8A6",marginBottom:12 }}>⚙ Configure: <b style={{ color:"#fff" }}>{selected.name}</b></p>
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10 }}>
+            {/* Strength */}
+            <div>
+              <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Strength</label>
+              <select value={strength} onChange={e=>setStrength(e.target.value)} className="select-glass"
+                style={{ width:"100%",padding:"9px 10px",borderRadius:10,fontSize:13 }}>
+                {selected.strengths.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            {/* Route */}
+            <div>
+              <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Route</label>
+              <select value={route} onChange={e=>setRoute(e.target.value)} className="select-glass"
+                style={{ width:"100%",padding:"9px 10px",borderRadius:10,fontSize:13 }}>
+                {ROUTES.map(r=><option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+          </div>
+          {/* Frequency */}
+          <div style={{ marginBottom:10 }}>
+            <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:.5 }}>Frequency</label>
+            <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
+              {FREQUENCIES.map(f=>(
+                <button key={f.id} onClick={()=>setFreq(f.id)}
+                  style={{ padding:"6px 12px",borderRadius:10,fontSize:11,fontWeight:700,border:"none",cursor:"pointer",transition:"all .15s",
+                    background:freq===f.id?"linear-gradient(135deg,#14B8A6,#0891B2)":"rgba(255,255,255,.08)",
+                    color:"#fff" }}>
+                  {f.label}<span style={{ fontSize:9,opacity:.7,display:"block" }}>{f.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12 }}>
+            {/* Duration */}
+            <div>
+              <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Duration</label>
+              <select value={duration} onChange={e=>setDuration(e.target.value)} className="select-glass"
+                style={{ width:"100%",padding:"9px 10px",borderRadius:10,fontSize:13 }}>
+                {DURATIONS.map(d=><option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            {/* Timing */}
+            <div>
+              <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Timing</label>
+              <select value={timing} onChange={e=>setTiming(e.target.value)} className="select-glass"
+                style={{ width:"100%",padding:"9px 10px",borderRadius:10,fontSize:13 }}>
+                {TIMINGS.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <button onClick={addItem} className="teal-btn" style={{ width:"100%",padding:"10px",borderRadius:12,fontSize:13 }}>
+            ➕ Add to Prescription
+          </button>
+        </div>
+      )}
+
+      {/* Prescription List */}
+      {items.length > 0 && (
+        <div style={{ marginBottom:14 }}>
+          <p style={{ fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",textTransform:"uppercase",letterSpacing:.5,marginBottom:10 }}>📋 Prescription ({items.length} medicines)</p>
+          {items.map((item,i)=>(
+            <div key={item.id} className="rx-card">
+              <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between" }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:5 }}>
+                    <span style={{ fontSize:14,fontWeight:900,color:"#fff" }}>{i+1}. {item.name}</span>
+                    <span className="chip" style={{ background:"rgba(20,184,166,.15)",color:"#14B8A6",border:"1px solid rgba(20,184,166,.25)" }}>{item.strength}</span>
+                    <span className="chip" style={{ background:"rgba(255,255,255,.08)",color:"rgba(255,255,255,.7)" }}>{item.route}</span>
+                  </div>
+                  <p style={{ fontSize:12,color:"rgba(255,255,255,.7)",lineHeight:1.6,fontFamily:"monospace" }}>
+                    {item.freq} × {item.duration} · {item.timing}
+                  </p>
+                  <p style={{ fontSize:10,color:"rgba(255,255,255,.4)",marginTop:3 }}>{freqLabel(item.freq)}</p>
+                </div>
+                <button onClick={()=>removeItem(item.id)}
+                  style={{ padding:"4px 8px",borderRadius:8,background:"rgba(239,68,68,.15)",border:"none",cursor:"pointer",color:"#F87171",fontSize:13,flexShrink:0,marginLeft:10 }}>✕</button>
+              </div>
+            </div>
+          ))}
+          {/* Formatted text preview */}
+          <div style={{ padding:"12px 14px",borderRadius:12,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",marginTop:12 }}>
+            <p style={{ fontSize:9,color:"rgba(255,255,255,.4)",textTransform:"uppercase",letterSpacing:.5,marginBottom:8 }}>Formatted Prescription Preview</p>
+            <p style={{ fontSize:12,fontFamily:"monospace",lineHeight:1.9,color:"rgba(255,255,255,.8)",whiteSpace:"pre-wrap" }}>
+              {items.map((item,i)=>`${i+1}. ${item.name} ${item.strength} (${item.route})\n   ${item.freq} × ${item.duration} — ${item.timing}`).join("\n")}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Additional Notes */}
+      <div>
+        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:6,textTransform:"uppercase",letterSpacing:1 }}>📝 Additional Notes / Instructions</label>
+        <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3}
+          placeholder="Advised rest for 3 days. Drink plenty of fluids. Follow-up in 1 week if not improving…" className="input-glass"
+          style={{ width:"100%",padding:"12px 14px",borderRadius:14,fontSize:13,resize:"vertical",lineHeight:1.6,border:"1px solid rgba(255,255,255,.2)" }}/>
+      </div>
+    </div>
+  );
+}
+
 /* ─── NOTES MODAL ────────────────────────────────────────────────────────── */
 function NotesModal({ patient, onClose, onSave }) {
-  const [notes, setNotes]             = useState(patient.notes||"");
-  const [prescription, setPrescription] = useState(patient.prescription||"");
-  const [saving, setSaving]           = useState(false);
+  const [consultNotes, setConsultNotes] = useState(patient.notes||"");
+  const [rxData, setRxData]             = useState({ items:[], notes:"" });
+  const [saving, setSaving]             = useState(false);
+
+  // Parse existing prescription if any
+  useEffect(() => {
+    if (patient.prescription) {
+      try {
+        const parsed = JSON.parse(patient.prescription);
+        if (parsed.items) setRxData(parsed);
+      } catch {
+        // old text format - keep as notes
+        setRxData({ items:[], notes:patient.prescription });
+      }
+    }
+  }, []);
+
+  const formatPrescriptionText = (rx) => {
+    if (!rx.items?.length && !rx.notes) return "";
+    const lines = rx.items?.map((item,i)=>`${i+1}. ${item.name} ${item.strength} (${item.route}) — ${item.freq} × ${item.duration}, ${item.timing}`) || [];
+    if (rx.notes) lines.push(`\nNotes: ${rx.notes}`);
+    return lines.join("\n");
+  };
 
   const save = async () => {
     setSaving(true);
     try {
-      await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:patient.dbId,notes,prescription})});
-      onSave(patient.dbId,notes,prescription);
+      const prescriptionJson = JSON.stringify(rxData);
+      await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id:patient.dbId, notes:consultNotes, prescription:prescriptionJson})});
+      onSave(patient.dbId, consultNotes, prescriptionJson);
       onClose();
     } catch { alert("Failed to save. Please try again."); }
     finally { setSaving(false); }
   };
 
   return (
-    <div style={{ position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,.75)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}>
-      <div className="glass-card" style={{ borderRadius:24,padding:28,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto" }}>
+    <div style={{ position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,.8)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}>
+      <div className="glass-card" style={{ borderRadius:24,padding:28,width:"100%",maxWidth:620,maxHeight:"92vh",overflowY:"auto" }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18 }}>
           <div>
-            <h3 style={{ fontSize:18,fontWeight:900 }}>📋 Consultation Notes</h3>
+            <h3 style={{ fontSize:18,fontWeight:900 }}>📋 Consultation</h3>
             <p style={{ fontSize:12,color:"rgba(255,255,255,.5)",marginTop:3 }}>{patient.id} · {patient.name} · {patient.dept}</p>
           </div>
           <button onClick={onClose} style={{ width:32,height:32,borderRadius:"50%",background:"rgba(255,255,255,.1)",border:"none",cursor:"pointer",color:"#fff",fontSize:16 }}>✕</button>
         </div>
-        <div style={{ padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",marginBottom:16 }}>
+
+        {/* Patient complaint */}
+        <div style={{ padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",marginBottom:18 }}>
           <p style={{ fontSize:9,color:"rgba(255,255,255,.4)",textTransform:"uppercase",letterSpacing:.5,marginBottom:5 }}>Patient Complaint</p>
           <p style={{ fontSize:12,fontStyle:"italic",color:"rgba(255,255,255,.8)",marginBottom:8 }}>"{patient.raw}"</p>
           <div style={{ display:"flex",flexWrap:"wrap",gap:4 }}>
             {patient.clinical.map(c=><span key={c} className="chip" style={{ background:"rgba(20,184,166,.15)",color:"#14B8A6",border:"1px solid rgba(20,184,166,.3)" }}>{c}</span>)}
           </div>
         </div>
-        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:6,textTransform:"uppercase",letterSpacing:1 }}>📝 Consultation Notes</label>
-        <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={4}
+
+        {/* Consultation Notes */}
+        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:6,textTransform:"uppercase",letterSpacing:1 }}>🩺 Consultation Notes</label>
+        <textarea value={consultNotes} onChange={e=>setConsultNotes(e.target.value)} rows={3}
           placeholder="Examination findings, diagnosis, observations…" className="input-glass"
-          style={{ width:"100%",padding:"12px 14px",borderRadius:14,fontSize:13,resize:"vertical",lineHeight:1.6,border:"1px solid rgba(255,255,255,.2)",marginBottom:14 }}/>
-        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:6,textTransform:"uppercase",letterSpacing:1 }}>💊 Prescription</label>
-        <textarea value={prescription} onChange={e=>setPrescription(e.target.value)} rows={5}
-          placeholder={"Tab. Paracetamol 500mg × 3 days\nSyp. Amoxicillin 5ml BD × 5 days\nAdvised rest and fluids…"} className="input-glass"
-          style={{ width:"100%",padding:"12px 14px",borderRadius:14,fontSize:12,resize:"vertical",lineHeight:1.8,border:"1px solid rgba(255,255,255,.2)",marginBottom:20,fontFamily:"monospace" }}/>
-        <div style={{ display:"flex",gap:10 }}>
+          style={{ width:"100%",padding:"12px 14px",borderRadius:14,fontSize:13,resize:"vertical",lineHeight:1.6,border:"1px solid rgba(255,255,255,.2)",marginBottom:20 }}/>
+
+        {/* Prescription Builder */}
+        <PrescriptionBuilder value={rxData} onChange={setRxData}/>
+
+        <div style={{ display:"flex",gap:10,marginTop:20 }}>
           <button onClick={onClose} className="liquid-btn" style={{ flex:1,padding:"12px",borderRadius:14,fontSize:14 }}>Cancel</button>
           <button onClick={save} disabled={saving} className="teal-btn" style={{ flex:2,padding:"12px",borderRadius:14,fontSize:14 }}>
-            {saving?"Saving…":"💾 Save Notes"}
+            {saving?"Saving…":"💾 Save Consultation"}
           </button>
         </div>
       </div>
@@ -352,11 +831,9 @@ function AdminView() {
   const [msg, setMsg]           = useState("");
 
   const showMsg = m => { setMsg(m); setTimeout(()=>setMsg(""),3000); };
-
   const loadDoctors  = async () => { const r=await fetch("/api/doctors");  const d=await r.json(); if(d.doctors)  setDoctors(d.doctors);   };
   const loadCounters = async () => { const r=await fetch("/api/counters"); const d=await r.json(); if(d.counters) setCounters(d.counters); };
-
-  useEffect(() => { loadDoctors(); loadCounters(); }, []);
+  useEffect(()=>{ loadDoctors(); loadCounters(); },[]);
 
   const addDoctor = async () => {
     if (!newDoc.name.trim()) return; setSaving(true);
@@ -372,7 +849,6 @@ function AdminView() {
     await fetch("/api/doctors",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
     await loadDoctors(); showMsg("Doctor removed.");
   };
-
   const addCounter = async () => {
     if (!newCtr.name.trim()) return; setSaving(true);
     await fetch("/api/counters",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(newCtr)});
@@ -387,12 +863,11 @@ function AdminView() {
     await fetch("/api/counters",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
     await loadCounters(); showMsg("Counter removed.");
   };
-
   const manualReset = async () => {
     if (!confirm("Archive all old tokens from previous days?")) return;
     const r = await fetch("/api/reset-tokens",{method:"POST"});
     const d = await r.json();
-    showMsg(d.message || "✅ Reset done!");
+    showMsg(d.message||"✅ Reset done!");
   };
 
   return (
@@ -407,21 +882,14 @@ function AdminView() {
           🗑 Archive Old Tokens
         </button>
       </div>
-
-      {msg && (
-        <div className="fade-in" style={{ marginBottom:16,padding:"10px 16px",borderRadius:12,background:"rgba(20,184,166,.12)",border:"1px solid rgba(20,184,166,.3)",fontSize:13,fontWeight:700,color:"#5EEAD4" }}>
-          {msg}
-        </div>
-      )}
-
+      {msg && <div className="fade-in" style={{ marginBottom:16,padding:"10px 16px",borderRadius:12,background:"rgba(20,184,166,.12)",border:"1px solid rgba(20,184,166,.3)",fontSize:13,fontWeight:700,color:"#5EEAD4" }}>{msg}</div>}
       <div style={{ display:"flex",gap:6,marginBottom:20 }}>
         {[["doctors","👨‍⚕️ Doctors"],["counters","🏥 Counters"]].map(([tb,lb])=>(
           <button key={tb} onClick={()=>setTab(tb)} className={tab===tb?"teal-btn":"liquid-btn"} style={{ padding:"9px 20px",borderRadius:12,fontSize:13 }}>{lb}</button>
         ))}
       </div>
 
-      {/* DOCTORS */}
-      {tab==="doctors" && (
+      {tab==="doctors"&&(
         <div className="fade-in" style={{ display:"flex",flexDirection:"column",gap:14 }}>
           <GCard>
             <h3 style={{ fontSize:14,fontWeight:700,marginBottom:14 }}>➕ Add New Doctor</h3>
@@ -432,14 +900,12 @@ function AdminView() {
                 style={{ flex:1,padding:"11px 14px",borderRadius:12,fontSize:13,minWidth:140 }}>
                 {DEPTS_LIST.map(d=><option key={d} value={d}>{d}</option>)}
               </select>
-              <button onClick={addDoctor} disabled={saving} className="teal-btn" style={{ padding:"11px 20px",borderRadius:12,fontSize:13 }}>
-                {saving?"Adding…":"Add"}
-              </button>
+              <button onClick={addDoctor} disabled={saving} className="teal-btn" style={{ padding:"11px 20px",borderRadius:12,fontSize:13 }}>{saving?"Adding…":"Add"}</button>
             </div>
           </GCard>
           {DEPTS_LIST.map(dept=>{
-            const docs = doctors.filter(d=>d.department===dept);
-            if (!docs.length) return null;
+            const docs=doctors.filter(d=>d.department===dept);
+            if(!docs.length)return null;
             return (
               <GCard key={dept}>
                 <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
@@ -465,8 +931,7 @@ function AdminView() {
                             background:doc.available?"rgba(20,184,166,.2)":"rgba(255,255,255,.1)",color:doc.available?"#14B8A6":"rgba(255,255,255,.6)" }}>
                           {doc.available?"Set Off":"Set On"}
                         </button>
-                        <button onClick={()=>deleteDoctor(doc.id)}
-                          style={{ padding:"6px 10px",borderRadius:10,fontSize:12,border:"none",cursor:"pointer",background:"rgba(239,68,68,.15)",color:"#F87171" }}>🗑</button>
+                        <button onClick={()=>deleteDoctor(doc.id)} style={{ padding:"6px 10px",borderRadius:10,fontSize:12,border:"none",cursor:"pointer",background:"rgba(239,68,68,.15)",color:"#F87171" }}>🗑</button>
                       </div>
                     </div>
                   ))}
@@ -477,8 +942,7 @@ function AdminView() {
         </div>
       )}
 
-      {/* COUNTERS */}
-      {tab==="counters" && (
+      {tab==="counters"&&(
         <div className="fade-in" style={{ display:"flex",flexDirection:"column",gap:14 }}>
           <GCard>
             <h3 style={{ fontSize:14,fontWeight:700,marginBottom:14 }}>➕ Add New Counter</h3>
@@ -489,20 +953,22 @@ function AdminView() {
                 style={{ flex:1,padding:"11px 14px",borderRadius:12,fontSize:13,minWidth:140 }}>
                 {DEPTS_LIST.map(d=><option key={d} value={d}>{d}</option>)}
               </select>
-              <button onClick={addCounter} disabled={saving} className="teal-btn" style={{ padding:"11px 20px",borderRadius:12,fontSize:13 }}>
-                {saving?"Adding…":"Add"}
-              </button>
+              <button onClick={addCounter} disabled={saving} className="teal-btn" style={{ padding:"11px 20px",borderRadius:12,fontSize:13 }}>{saving?"Adding…":"Add"}</button>
             </div>
           </GCard>
           {DEPTS_LIST.map(dept=>{
-            const ctrs = counters.filter(c=>c.department===dept);
-            if (!ctrs.length) return null;
+            const ctrs=counters.filter(c=>c.department===dept);
+            if(!ctrs.length)return null;
+            const activeCtrs=ctrs.filter(c=>c.active).length;
             return (
               <GCard key={dept}>
                 <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
-                  <div style={{ width:10,height:10,borderRadius:"50%",background:DEPT_COLORS[dept]||"#14B8A6" }}/>
+                  <div style={{ width:10,height:10,borderRadius:"50%",background:activeCtrs>0?DEPT_COLORS[dept]||"#14B8A6":"#4B5563" }}/>
                   <h3 style={{ fontSize:13,fontWeight:700 }}>{dept}</h3>
-                  <span style={{ fontSize:11,color:"rgba(255,255,255,.4)" }}>({ctrs.filter(c=>c.active).length} active / {ctrs.length} total)</span>
+                  <span style={{ fontSize:11,color:activeCtrs>0?"#14B8A6":"rgba(255,255,255,.4)",fontWeight:600 }}>
+                    ({activeCtrs} active / {ctrs.length} total)
+                    {activeCtrs===0&&<span style={{ color:"#F87171",marginLeft:6,fontSize:10 }}>● DEPT CLOSED</span>}
+                  </span>
                 </div>
                 <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8 }}>
                   {ctrs.map(ctr=>(
@@ -519,8 +985,7 @@ function AdminView() {
                             background:ctr.active?"rgba(20,184,166,.2)":"rgba(255,255,255,.1)",color:ctr.active?"#14B8A6":"rgba(255,255,255,.6)" }}>
                           {ctr.active?"Off":"On"}
                         </button>
-                        <button onClick={()=>deleteCounter(ctr.id)}
-                          style={{ padding:"5px 8px",borderRadius:8,fontSize:12,border:"none",cursor:"pointer",background:"rgba(239,68,68,.15)",color:"#F87171" }}>🗑</button>
+                        <button onClick={()=>deleteCounter(ctr.id)} style={{ padding:"5px 8px",borderRadius:8,fontSize:12,border:"none",cursor:"pointer",background:"rgba(239,68,68,.15)",color:"#F87171" }}>🗑</button>
                       </div>
                     </div>
                   ))}
@@ -535,47 +1000,43 @@ function AdminView() {
 }
 
 /* ─── HOME VIEW ──────────────────────────────────────────────────────────── */
-function HomeView({ t, setView, queue }) {
-  const [mobile, setMobile]           = useState("");
-  const [statusData, setStatusData]   = useState(null);
-  const [statusLoading, setLoading]   = useState(false);
-  const [statusErr, setStatusErr]     = useState("");
+function HomeView({ t, setView, queue, openCount }) {
+  const [mobile, setMobile]         = useState("");
+  const [statusData, setStatusData] = useState(null);
+  const [statusLoading, setLoading] = useState(false);
+  const [statusErr, setStatusErr]   = useState("");
   const pollRef = useRef(null);
 
-  const waiting2   = queue.filter(q=>q.status==="waiting");
+  const waiting2     = queue.filter(q=>q.status==="waiting");
   const waitingCount = waiting2.length;
-  const avgWait    = waiting2.length ? Math.round(waiting2.reduce((s,p)=>s+p.wait,0)/waiting2.length) : 0;
+  const avgWait      = waiting2.length ? Math.round(waiting2.reduce((s,p)=>s+p.wait,0)/waiting2.length) : 0;
 
   const checkToken = async (mob) => {
-    const m = mob||mobile;
-    if (m.length < 10) { setStatusErr("⚠ Enter a valid 10-digit number"); return; }
-    setLoading(true); setStatusErr(""); setStatusData(null);
+    const m=mob||mobile;
+    if (m.length<10){setStatusErr("⚠ Enter a valid 10-digit number");return;}
+    setLoading(true);setStatusErr("");setStatusData(null);
     try {
-      const res  = await fetch(`/api/token-status?mobile=${m}`);
-      const data = await res.json();
-      if (data.found) setStatusData(data.token);
-      else { setStatusErr("ℹ No active token found for today."); clearInterval(pollRef.current); }
-    } catch { setStatusErr("Network error. Please try again."); }
-    finally { setLoading(false); }
+      const res=await fetch(`/api/token-status?mobile=${m}`);
+      const data=await res.json();
+      if(data.found)setStatusData(data.token);
+      else{setStatusErr("ℹ No active token found for today.");clearInterval(pollRef.current);}
+    }catch{setStatusErr("Network error. Please try again.");}
+    finally{setLoading(false);}
   };
 
-  // Auto-poll every 15 seconds while token is active
-  useEffect(() => {
-    if (statusData) {
-      clearInterval(pollRef.current);
-      pollRef.current = setInterval(()=>checkToken(mobile),15000);
-    }
-    return () => clearInterval(pollRef.current);
-  }, [statusData]);
+  useEffect(()=>{
+    if(statusData){clearInterval(pollRef.current);pollRef.current=setInterval(()=>checkToken(mobile),15000);}
+    return()=>clearInterval(pollRef.current);
+  },[statusData]);
 
   return (
     <div className="slide-up" style={{ display:"flex",flexDirection:"column",gap:18 }}>
-      {/* Hero */}
       <GCard style={{ borderRadius:28,padding:"32px 24px",position:"relative",overflow:"hidden" }}>
         <div style={{ position:"absolute",top:-60,right:-60,width:280,height:280,borderRadius:"50%",background:"radial-gradient(circle,rgba(20,184,166,.25),transparent 70%)",filter:"blur(20px)" }}/>
         <div style={{ position:"absolute",bottom:-40,left:-40,width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,rgba(245,166,35,.2),transparent 70%)",filter:"blur(20px)" }}/>
         <svg style={{ position:"absolute",right:16,bottom:0,opacity:.12,height:140 }} viewBox="0 0 120 140">
-          <rect x={20} y={50} width={80} height={90} rx={4} fill="#14B8A6"/><rect x={48} y={20} width={24} height={34} rx={2} fill="#14B8A6"/>
+          <rect x={20} y={50} width={80} height={90} rx={4} fill="#14B8A6"/>
+          <rect x={48} y={20} width={24} height={34} rx={2} fill="#14B8A6"/>
           <rect x={54} y={5} width={12} height={20} rx={1} fill="#14B8A6"/>
           {[[45,60],[59,60],[73,60],[45,80],[59,80],[73,80]].map(([x,y],i)=><rect key={i} x={x} y={y} width={16} height={16} rx={2} fill="rgba(0,0,0,.3)"/>)}
           <rect x={50} y={108} width={20} height={32} rx={3} fill="rgba(0,0,0,.2)"/>
@@ -590,7 +1051,11 @@ function HomeView({ t, setView, queue }) {
           <h1 style={{ fontSize:30,fontWeight:900,lineHeight:1.15,letterSpacing:"-.5px",marginBottom:6 }}>{t.welcome}</h1>
           <p style={{ fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:22 }}>{t.tagline}</p>
           <div style={{ display:"flex",gap:10,flexWrap:"wrap" }}>
-            {[{icon:"👥",val:waitingCount,label:"Waiting now",color:"#14B8A6"},{icon:"⏱",val:`~${avgWait}m`,label:"Avg wait",color:"#F5A623"},{icon:"🏥",val:"6",label:"Departments",color:"#A78BFA"}].map(s=>(
+            {[
+              {icon:"👥",val:waitingCount,label:"Waiting now",color:"#14B8A6"},
+              {icon:"⏱",val:`~${avgWait}m`,label:"Avg wait",color:"#F5A623"},
+              {icon:"🏥",val:`${openCount} Open`,label:"Departments",color:"#A78BFA"},
+            ].map(s=>(
               <div key={s.label} className="glass" style={{ padding:"10px 16px",borderRadius:14,flex:1,minWidth:90 }}>
                 <div style={{ fontSize:18,marginBottom:3 }}>{s.icon}</div>
                 <div style={{ fontSize:20,fontWeight:900,color:s.color,lineHeight:1 }}>{s.val}</div>
@@ -601,47 +1066,31 @@ function HomeView({ t, setView, queue }) {
         </div>
       </GCard>
 
-      {/* Booking cards */}
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
         <button onClick={()=>setView("book")} className="hover-lift" style={{ borderRadius:24,padding:"24px 16px",background:"linear-gradient(145deg,rgba(20,184,166,.15),rgba(8,145,178,.1))",border:"1px solid rgba(20,184,166,.3)",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:14,minHeight:180,backdropFilter:"blur(20px)" }}>
           <div className="pulse-ring" style={{ width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#14B8A6,#0891B2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,boxShadow:"0 6px 24px rgba(20,184,166,.5)" }}>🎤</div>
-          <div style={{ textAlign:"center" }}>
-            <div style={{ fontWeight:800,fontSize:15,marginBottom:4 }}>{t.tapSpeak}</div>
-            <div style={{ fontSize:11,color:"rgba(255,255,255,.55)",lineHeight:1.5 }}>{t.describe}</div>
-          </div>
+          <div style={{ textAlign:"center" }}><div style={{ fontWeight:800,fontSize:15,marginBottom:4 }}>{t.tapSpeak}</div><div style={{ fontSize:11,color:"rgba(255,255,255,.55)",lineHeight:1.5 }}>{t.describe}</div></div>
         </button>
         <button onClick={()=>setView("book")} className="hover-lift" style={{ borderRadius:24,padding:"24px 16px",background:"linear-gradient(145deg,rgba(245,166,35,.15),rgba(249,115,22,.1))",border:"1px solid rgba(245,166,35,.3)",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:14,minHeight:180,backdropFilter:"blur(20px)" }}>
           <div style={{ width:72,height:72,borderRadius:"50%",background:"linear-gradient(135deg,#F5A623,#F97316)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,boxShadow:"0 6px 24px rgba(245,166,35,.4)" }}>📋</div>
-          <div style={{ textAlign:"center" }}>
-            <div style={{ fontWeight:800,fontSize:15,marginBottom:4 }}>{t.bookManual}</div>
-            <div style={{ fontSize:11,color:"rgba(255,255,255,.55)" }}>{t.tapType}</div>
-          </div>
+          <div style={{ textAlign:"center" }}><div style={{ fontWeight:800,fontSize:15,marginBottom:4 }}>{t.bookManual}</div><div style={{ fontSize:11,color:"rgba(255,255,255,.55)" }}>{t.tapType}</div></div>
         </button>
       </div>
 
-      {/* PWA */}
       <GCard style={{ padding:"14px 18px",display:"flex",alignItems:"center",gap:14 }}>
         <div style={{ width:44,height:44,borderRadius:14,background:"linear-gradient(135deg,rgba(99,102,241,.3),rgba(139,92,246,.3))",border:"1px solid rgba(139,92,246,.4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0 }}>📲</div>
-        <div style={{ flex:1 }}>
-          <div style={{ fontWeight:700,fontSize:13 }}>{t.install}</div>
-          <div style={{ fontSize:11,color:"rgba(255,255,255,.5)",marginTop:2 }}>{t.installSub}</div>
-        </div>
+        <div style={{ flex:1 }}><div style={{ fontWeight:700,fontSize:13 }}>{t.install}</div><div style={{ fontSize:11,color:"rgba(255,255,255,.5)",marginTop:2 }}>{t.installSub}</div></div>
         <button className="teal-btn" style={{ padding:"7px 16px",borderRadius:10,fontSize:11,flexShrink:0 }}>Install</button>
       </GCard>
 
-      {/* Banners */}
       {[{color:"#25D366",icon:"💬",title:t.waBook,sub:"Message 'HI' to +91-97XX-XXXXX",tag:"WhatsApp"},{color:"#6366F1",icon:"📱",title:t.smsBook,sub:"Works on any phone, zero internet"}].map((b,i)=>(
         <GCard key={i} style={{ padding:"14px 18px",display:"flex",alignItems:"center",gap:14,borderLeft:`3px solid ${b.color}`,borderTopLeftRadius:0,borderBottomLeftRadius:0 }}>
           <div style={{ width:42,height:42,borderRadius:12,background:`${b.color}20`,border:`1px solid ${b.color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0 }}>{b.icon}</div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontWeight:700,fontSize:13 }}>{b.title}</div>
-            <div style={{ fontSize:11,color:"rgba(255,255,255,.5)",marginTop:2 }}>{b.sub}</div>
-          </div>
+          <div style={{ flex:1 }}><div style={{ fontWeight:700,fontSize:13 }}>{b.title}</div><div style={{ fontSize:11,color:"rgba(255,255,255,.5)",marginTop:2 }}>{b.sub}</div></div>
           {b.tag&&<span style={{ fontSize:10,fontWeight:700,color:b.color,background:`${b.color}20`,padding:"3px 10px",borderRadius:20,border:`1px solid ${b.color}30` }}>{b.tag}</span>}
         </GCard>
       ))}
 
-      {/* Live Token Status Check */}
       <GCard>
         <div style={{ fontWeight:700,fontSize:13,marginBottom:12 }}>🔍 {t.checkStatus}</div>
         <div style={{ display:"flex",gap:8 }}>
@@ -652,27 +1101,25 @@ function HomeView({ t, setView, queue }) {
             {statusLoading?"…":t.checkBtn}
           </button>
         </div>
-        {statusErr && <div style={{ marginTop:10,padding:"9px 14px",borderRadius:10,background:"rgba(255,255,255,.05)",fontSize:12,color:"rgba(255,255,255,.6)" }}>{statusErr}</div>}
-        {statusData && (
+        {statusErr&&<div style={{ marginTop:10,padding:"9px 14px",borderRadius:10,background:"rgba(255,255,255,.05)",fontSize:12,color:"rgba(255,255,255,.6)" }}>{statusErr}</div>}
+        {statusData&&(
           <div className="fade-in" style={{ marginTop:12,padding:16,borderRadius:16,background:"rgba(20,184,166,.1)",border:"1px solid rgba(20,184,166,.3)" }}>
             <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
               <span style={{ fontSize:28,fontWeight:900,color:"#F5A623",letterSpacing:"-1px" }}>{statusData.token_number}</span>
               <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                <span className="chip" style={{ background:statusData.status==="called"?"#A78BFA":statusData.status==="waiting"?"#14B8A6":"#059669",color:"#fff" }}>
-                  {statusData.status?.toUpperCase()}
-                </span>
+                <span className="chip" style={{ background:statusData.status==="called"?"#A78BFA":statusData.status==="waiting"?"#14B8A6":"#059669",color:"#fff" }}>{statusData.status?.toUpperCase()}</span>
                 <span style={{ fontSize:9,color:"rgba(255,255,255,.4)" }}>auto-refreshing</span>
               </div>
             </div>
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8 }}>
-              {[{l:"Department",v:statusData.department},{l:"Est. Wait",v:`~${statusData.wait_minutes} mins`},{l:"Counter",v:statusData.counter||"—"},{l:"Doctor",v:statusData.doctor||"—"},{l:"Queue Position",v:`#${statusData.position} in line`}].map(s=>(
+              {[{l:"Department",v:statusData.department},{l:"Est. Wait",v:`~${statusData.wait_minutes} mins`},{l:"Counter",v:statusData.counter||"—"},{l:"Doctor",v:statusData.doctor||"—"},{l:"Position",v:`#${statusData.position} in line`}].map(s=>(
                 <div key={s.l} style={{ padding:"8px 10px",borderRadius:10,background:"rgba(255,255,255,.05)" }}>
                   <p style={{ fontSize:9,color:"rgba(255,255,255,.4)",textTransform:"uppercase",letterSpacing:.5,marginBottom:3 }}>{s.l}</p>
                   <p style={{ fontSize:12,fontWeight:700 }}>{s.v}</p>
                 </div>
               ))}
             </div>
-            {statusData.status==="called" && (
+            {statusData.status==="called"&&(
               <div style={{ marginTop:10,padding:"8px 12px",borderRadius:10,background:"rgba(167,139,250,.15)",border:"1px solid rgba(167,139,250,.3)",textAlign:"center" }}>
                 <span style={{ fontSize:12,fontWeight:700,color:"#A78BFA" }}>📢 Your turn! Please proceed to {statusData.counter}</span>
               </div>
@@ -688,22 +1135,22 @@ function HomeView({ t, setView, queue }) {
 }
 
 /* ─── BOOK VIEW ──────────────────────────────────────────────────────────── */
-function BookView({ t, lang, setView }) {
-  const [step, setStep]           = useState(0);
-  const [dept, setDept]           = useState(null);
-  const [mobile, setMobile]       = useState("");
-  const [patientName, setName]    = useState("");
-  const [otp, setOtp]             = useState(["","","","","",""]);
-  const [otpErr, setOtpErr]       = useState("");
-  const [vState, setVState]       = useState("idle");
-  const [transcript, setTrans]    = useState("");
-  const [nlp, setNlp]             = useState(null);
-  const [nlpLoad, setNlpLoad]     = useState(false);
-  const [selSym, setSelSym]       = useState([]);
-  const [search, setSearch]       = useState("");
-  const [booking, setBooking]     = useState(false);
-  const recRef  = useRef(null);
-  const otpRef  = useRef([]);
+function BookView({ t, lang, setView, activeDepts }) {
+  const [step, setStep]         = useState(0);
+  const [dept, setDept]         = useState(null);
+  const [mobile, setMobile]     = useState("");
+  const [patientName, setName]  = useState("");
+  const [otp, setOtp]           = useState(["","","","","",""]);
+  const [otpErr, setOtpErr]     = useState("");
+  const [vState, setVState]     = useState("idle");
+  const [transcript, setTrans]  = useState("");
+  const [nlp, setNlp]           = useState(null);
+  const [nlpLoad, setNlpLoad]   = useState(false);
+  const [selSym, setSelSym]     = useState([]);
+  const [search, setSearch]     = useState("");
+  const [booking, setBooking]   = useState(false);
+  const recRef    = useRef(null);
+  const otpRef    = useRef([]);
   const tokenNum  = useRef("");
   const tokenData = useRef(null);
   const steps = ["Dept","Details","OTP","Symptoms","Done"];
@@ -711,7 +1158,6 @@ function BookView({ t, lang, setView }) {
   const sendOTP   = () => { setOtpErr(""); setStep(2); };
   const verifyOTP = () => { if(otp.join("")==="123456")setStep(3); else setOtpErr("Incorrect OTP. Use 123456"); };
   const handleOtp = (i,v) => { if(!/^[0-9]?$/.test(v))return; const n=[...otp];n[i]=v;setOtp(n);if(v&&i<5)otpRef.current[i+1]?.focus(); };
-
   const startVoice = () => {
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!SR){alert(t.voiceNA);return;}
@@ -720,14 +1166,11 @@ function BookView({ t, lang, setView }) {
     r.onend=()=>setVState("done");r.start();recRef.current=r;setVState("listening");
   };
   const stopVoice = ()=>recRef.current?.stop();
-
   useEffect(()=>{if(vState==="done"&&transcript){setNlpLoad(true);extractSymptomsAI(transcript,lang).then(r=>{setNlp(r);setNlpLoad(false);});}},[vState]);
-
   const pickSym = async sym=>{
     const next=selSym.includes(sym)?selSym.filter(x=>x!==sym):[...selSym,sym];setSelSym(next);
     if(!nlp&&next.length>0){setNlpLoad(true);const r=await extractSymptomsAI(next.join(", "),lang);setNlp(r);setNlpLoad(false);}
   };
-
   const bookToken = async()=>{
     if(!canNext||booking)return;setBooking(true);
     try{
@@ -738,14 +1181,12 @@ function BookView({ t, lang, setView }) {
       else alert("Booking failed. Please try again.");
     }catch{alert("Network error.");}finally{setBooking(false);}
   };
-
   const canNext=nlp||selSym.length>0;
   const urgColor={red:"#DC2626",yellow:"#D97706",green:"#059669"}[nlp?.urgency]||"#D97706";
   const reset=()=>{setStep(0);setDept(null);setMobile("");setName("");setOtp(["","","","","",""]);setVState("idle");setTrans("");setNlp(null);setSelSym([]);setSearch("");};
 
   return (
     <div className="slide-up">
-      {/* Progress bar */}
       <div style={{ display:"flex",gap:3,marginBottom:24 }}>
         {steps.map((s,i)=>(
           <div key={i} style={{ display:"flex",flexDirection:"column",alignItems:"center",flex:1,gap:5 }}>
@@ -758,19 +1199,39 @@ function BookView({ t, lang, setView }) {
         ))}
       </div>
 
-      {/* Step 0 — Department */}
+      {/* Step 0 — Department — with availability check */}
       {step===0&&(
         <div className="fade-in">
-          <div style={{ marginBottom:20 }}><h2 style={{ fontSize:22,fontWeight:900,marginBottom:4 }}>{t.chooseDept}</h2><p style={{ fontSize:13,color:"rgba(255,255,255,.5)" }}>Select the department for your visit</p></div>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12 }}>
-            {DEPTS.map(d=>(
-              <button key={d.id} onClick={()=>{setDept(d);setStep(1);}} className="hover-lift glass-card"
-                style={{ padding:"20px 14px",borderRadius:20,border:`1px solid ${dept?.id===d.id?"rgba(20,184,166,.5)":"rgba(255,255,255,.1)"}`,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:10,background:dept?.id===d.id?"rgba(20,184,166,.12)":"rgba(255,255,255,.04)",transition:"all .2s" }}>
-                <div style={{ width:58,height:58,borderRadius:18,background:d.grad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.3)" }}>{d.icon}</div>
-                <span style={{ fontSize:12,fontWeight:700,color:"#fff",textAlign:"center",lineHeight:1.3 }}>{d.label}</span>
-              </button>
-            ))}
+          <div style={{ marginBottom:20 }}>
+            <h2 style={{ fontSize:22,fontWeight:900,marginBottom:4 }}>{t.chooseDept}</h2>
+            <p style={{ fontSize:13,color:"rgba(255,255,255,.5)" }}>Select an available department</p>
           </div>
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12 }}>
+            {ALL_DEPTS.map(d=>{
+              const isActive = activeDepts.has(d.label);
+              return (
+                <button key={d.id}
+                  onClick={()=>{ if(!isActive) return; setDept(d); setStep(1); }}
+                  className={isActive?"hover-lift glass-card":"glass-card"}
+                  style={{ padding:"20px 14px",borderRadius:20,
+                    border:`1px solid ${dept?.id===d.id?"rgba(20,184,166,.5)":isActive?"rgba(255,255,255,.1)":"rgba(255,255,255,.04)"}`,
+                    cursor:isActive?"pointer":"not-allowed",display:"flex",flexDirection:"column",alignItems:"center",gap:10,
+                    background:!isActive?"rgba(0,0,0,.2)":dept?.id===d.id?"rgba(20,184,166,.12)":"rgba(255,255,255,.04)",
+                    transition:"all .2s",opacity:isActive?1:.5,position:"relative",overflow:"hidden" }}>
+                  <div style={{ width:58,height:58,borderRadius:18,background:isActive?d.grad:"linear-gradient(135deg,#374151,#4B5563)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.3)" }}>{d.icon}</div>
+                  <span style={{ fontSize:12,fontWeight:700,color:isActive?"#fff":"rgba(255,255,255,.4)",textAlign:"center",lineHeight:1.3 }}>{d.label}</span>
+                  {!isActive && (
+                    <div style={{ position:"absolute",top:8,right:8,background:"rgba(239,68,68,.2)",border:"1px solid rgba(239,68,68,.3)",borderRadius:10,padding:"2px 8px" }}>
+                      <span style={{ fontSize:9,fontWeight:700,color:"#F87171" }}>● {t.notAvail}</span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p style={{ fontSize:11,color:"rgba(255,255,255,.35)",textAlign:"center",marginTop:14 }}>
+            Departments shown as unavailable have no active counters. Contact admin to enable.
+          </p>
         </div>
       )}
 
@@ -790,7 +1251,7 @@ function BookView({ t, lang, setView }) {
           </GCard>
           <GCard>
             <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:8,textTransform:"uppercase",letterSpacing:1 }}>📱 Mobile Number</label>
-            <div style={{ display:"flex",alignItems:"center",border:`1px solid ${mobile?"rgba(20,184,166,.5)":"rgba(255,255,255,.15)"}`,borderRadius:14,overflow:"hidden",marginBottom:12,background:"rgba(255,255,255,.06)",transition:"border-color .2s" }}>
+            <div style={{ display:"flex",alignItems:"center",border:`1px solid ${mobile?"rgba(20,184,166,.5)":"rgba(255,255,255,.15)"}`,borderRadius:14,overflow:"hidden",marginBottom:12,background:"rgba(255,255,255,.06)" }}>
               <span style={{ padding:"0 14px",fontSize:13,color:"rgba(255,255,255,.5)",fontWeight:700,borderRight:"1px solid rgba(255,255,255,.1)",alignSelf:"stretch",display:"flex",alignItems:"center" }}>+91</span>
               <input type="tel" maxLength={10} value={mobile} onChange={e=>setMobile(e.target.value)} placeholder="XXXXX XXXXX"
                 style={{ flex:1,padding:"13px 14px",fontSize:20,fontWeight:700,letterSpacing:3,border:"none",outline:"none",background:"transparent",color:"#fff" }}/>
@@ -845,7 +1306,7 @@ function BookView({ t, lang, setView }) {
       {/* Step 3 — Symptoms */}
       {step===3&&(
         <div className="fade-in" style={{ display:"flex",flexDirection:"column",gap:14 }}>
-          <div><h2 style={{ fontSize:22,fontWeight:900,marginBottom:4 }}>{t.s2title}</h2><p style={{ fontSize:13,color:"rgba(255,255,255,.5)" }}>Hi <b style={{ color:"#14B8A6" }}>{patientName}</b>, describe your symptoms</p></div>
+          <div><h2 style={{ fontSize:22,fontWeight:900,marginBottom:4 }}>{t.s2title}</h2><p style={{ fontSize:13,color:"rgba(255,255,255,.5)" }}>Hi <b style={{ color:"#14B8A6" }}>{patientName}</b></p></div>
           <GCard>
             <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:14 }}>
               <button onMouseDown={startVoice} onMouseUp={stopVoice} onTouchStart={startVoice} onTouchEnd={stopVoice}
@@ -857,22 +1318,9 @@ function BookView({ t, lang, setView }) {
               <p style={{ fontSize:12,fontWeight:700,color:vState==="listening"?"#F87171":vState==="done"?"#34D399":"rgba(255,255,255,.6)" }}>
                 {vState==="idle"?t.holdSpeak:vState==="listening"?t.listening:t.processing}
               </p>
-              {vState==="listening"&&(
-                <div style={{ display:"flex",gap:3,alignItems:"flex-end",height:36 }}>
-                  {Array.from({length:18}).map((_,i)=>(
-                    <div key={i} className="wave-bar" style={{ width:3,borderRadius:2,background:`hsl(${160+i*4},80%,60%)`,animationDelay:`${i*.07}s`,height:`${10+Math.random()*16}px` }}/>
-                  ))}
-                </div>
-              )}
+              {vState==="listening"&&<div style={{ display:"flex",gap:3,alignItems:"flex-end",height:36 }}>{Array.from({length:18}).map((_,i)=><div key={i} className="wave-bar" style={{ width:3,borderRadius:2,background:`hsl(${160+i*4},80%,60%)`,animationDelay:`${i*.07}s`,height:`${10+Math.random()*16}px` }}/>)}</div>}
               {transcript&&<div style={{ padding:"10px 16px",background:"rgba(255,255,255,.06)",borderRadius:14,border:"1px solid rgba(255,255,255,.12)",fontSize:13,fontStyle:"italic",color:"rgba(255,255,255,.85)",width:"100%",lineHeight:1.6 }}>"{transcript}"</div>}
             </div>
-            {!transcript&&vState==="idle"&&(
-              <div style={{ marginTop:16,padding:"12px 14px",borderRadius:14,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.1)" }}>
-                <p style={{ fontSize:9,fontWeight:700,color:"rgba(255,255,255,.4)",textTransform:"uppercase",letterSpacing:1,marginBottom:6 }}>AI Example</p>
-                <p style={{ fontSize:12,fontStyle:"italic",color:"rgba(255,255,255,.7)",marginBottom:8 }}>"My head is spinning and I feel like throwing up"</p>
-                <div style={{ display:"flex",gap:5 }}>{["Vertigo","Nausea"].map(tag=><span key={tag} className="chip" style={{ background:"rgba(20,184,166,.2)",color:"#14B8A6",border:"1px solid rgba(20,184,166,.3)" }}>[{tag}]</span>)}</div>
-              </div>
-            )}
             {nlpLoad&&<div style={{ textAlign:"center",padding:16,color:"rgba(255,255,255,.5)",fontSize:13 }}>🤖 {t.processing}</div>}
             {nlp&&!nlpLoad&&(
               <div className="fade-in" style={{ marginTop:14,padding:16,borderRadius:16,border:`1px solid ${urgColor}40`,background:`${urgColor}10` }}>
@@ -911,7 +1359,7 @@ function BookView({ t, lang, setView }) {
         </div>
       )}
 
-      {/* Step 4 — Confirmation */}
+      {/* Step 4 — Success */}
       {step===4&&(
         <div className="fade-in" style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:18,textAlign:"center" }}>
           <div style={{ width:70,height:70,borderRadius:"50%",background:"linear-gradient(135deg,rgba(5,150,105,.4),rgba(20,184,166,.4))",border:"1px solid rgba(20,184,166,.4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,boxShadow:"0 6px 24px rgba(20,184,166,.3)" }}>✅</div>
@@ -923,9 +1371,7 @@ function BookView({ t, lang, setView }) {
               <div style={{ fontSize:88,fontWeight:900,color:"#F5A623",lineHeight:1,letterSpacing:"-3px",textShadow:"0 4px 24px rgba(245,166,35,.4)",marginBottom:6 }}>{tokenNum.current}</div>
               <p style={{ fontSize:12,color:"rgba(255,255,255,.4)",marginBottom:20 }}>Your queue number</p>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:"rgba(255,255,255,.06)",borderRadius:16,overflow:"hidden",marginBottom:20 }}>
-                {[{l:t.waitTime,v:`${tokenData.current?.wait_minutes||20} ${t.mins}`,c:"#14B8A6"},
-                  {l:"Counter",v:tokenData.current?.counter_name||"OPD 1",c:"#fff"},
-                  {l:"Doctor",v:tokenData.current?.doctor_name||"Dr. Shah",c:"#fff"}].map((x,i)=>(
+                {[{l:t.waitTime,v:`${tokenData.current?.wait_minutes||20} ${t.mins}`,c:"#14B8A6"},{l:"Counter",v:tokenData.current?.counter_name||"OPD 1",c:"#fff"},{l:"Doctor",v:tokenData.current?.doctor_name||"Dr. Shah",c:"#fff"}].map((x,i)=>(
                   <div key={i} style={{ padding:"14px 10px",background:"rgba(255,255,255,.04)",textAlign:"center" }}>
                     <p style={{ fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>{x.l}</p>
                     <p style={{ fontSize:14,fontWeight:900,color:x.c,lineHeight:1.2 }}>{x.v}</p>
@@ -933,9 +1379,7 @@ function BookView({ t, lang, setView }) {
                 ))}
               </div>
               <svg width="80" height="80" style={{ display:"block",margin:"0 auto",background:"#fff",borderRadius:12,padding:8 }} viewBox="0 0 7 7">
-                {[[0,0],[1,0],[2,0],[0,1],[2,1],[0,2],[1,2],[2,2],[4,0],[5,0],[6,0],[4,1],[6,1],[4,2],[5,2],[6,2],[0,4],[0,5],[0,6],[1,4],[2,4],[2,5],[2,6],[4,4],[6,4],[4,5],[5,6],[3,3],[3,0],[3,2]].map(([x,y],i)=>(
-                  <rect key={i} x={x} y={y} width={1} height={1} fill="#050D1F"/>
-                ))}
+                {[[0,0],[1,0],[2,0],[0,1],[2,1],[0,2],[1,2],[2,2],[4,0],[5,0],[6,0],[4,1],[6,1],[4,2],[5,2],[6,2],[0,4],[0,5],[0,6],[1,4],[2,4],[2,5],[2,6],[4,4],[6,4],[4,5],[5,6],[3,3],[3,0],[3,2]].map(([x,y],i)=>(<rect key={i} x={x} y={y} width={1} height={1} fill="#050D1F"/>))}
               </svg>
               <p style={{ fontSize:9,color:"rgba(255,255,255,.3)",marginTop:8 }}>Show at counter · Valid today only</p>
             </div>
@@ -957,7 +1401,7 @@ function BookView({ t, lang, setView }) {
 
 /* ─── CHAT VIEW ──────────────────────────────────────────────────────────── */
 function ChatView() {
-  const msgs=[{f:"bot",m:"🏥 *Welcome to UPHC Queue Bot!*\n\nDescribe your problem or reply:\n*1* Fever  *2* Cough  *3* Stomach\n*4* Pregnancy  *5* Vaccine  *6* Other",t:"9:30"},{f:"usr",m:"Pet dukhe che",t:"9:31"},{f:"bot",m:"🤖 *Understood: Stomach Ache*\n\n✅ Token: *A-42*  ⏳ ~22 mins\n🏥 Counter: *OPD 3*  👨‍⚕️ Dr. Shah\n\nWe'll WhatsApp you when near 📲",t:"9:31"},{f:"usr",m:"Ok, shukriya",t:"9:32"},{f:"bot",m:"📢 *UPHC Alert — Token A-42*\n10 mins to go. Please be ready at OPD Counter 3. 🙏",t:"9:51"}];
+  const msgs=[{f:"bot",m:"🏥 *Welcome to UPHC Queue Bot!*\n\nDescribe your problem or reply:\n*1* Fever  *2* Cough  *3* Stomach\n*4* Pregnancy  *5* Vaccine  *6* Other",t:"9:30"},{f:"usr",m:"Pet dukhe che",t:"9:31"},{f:"bot",m:"🤖 *Understood: Stomach Ache*\n\n✅ Token: *A-42*  ⏳ ~22 mins\n🏥 Counter: *OPD 3*  👨‍⚕️ Dr. Shah",t:"9:31"},{f:"usr",m:"Ok, shukriya",t:"9:32"},{f:"bot",m:"📢 *UPHC Alert — Token A-42*\n10 mins to go. Please be ready at OPD Counter 3. 🙏",t:"9:51"}];
   return (
     <div className="slide-up" style={{ display:"flex",flexDirection:"column",gap:16 }}>
       <h2 style={{ textAlign:"center",fontSize:20,fontWeight:900 }}>Offline Booking Channels</h2>
@@ -966,20 +1410,17 @@ function ChatView() {
           <p style={{ fontSize:10,fontWeight:700,color:"rgba(255,255,255,.4)",textTransform:"uppercase",letterSpacing:1.5 }}>WhatsApp Bot</p>
           <div className="hover-lift" style={{ width:"100%",maxWidth:230,borderRadius:24,overflow:"hidden",boxShadow:"0 16px 48px rgba(0,0,0,.5)",border:"1px solid rgba(255,255,255,.1)" }}>
             <div style={{ background:"#1E2B1A",padding:"6px 12px",display:"flex",justifyContent:"space-between",fontSize:9,color:"rgba(255,255,255,.6)" }}><span>9:51</span><span>📶 🔋</span></div>
-            <div style={{ background:"#075E54",display:"flex",alignItems:"center",gap:8,padding:"10px 12px" }}>
-              <div style={{ width:32,height:32,borderRadius:"50%",background:"#25D366",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14 }}>🏥</div>
-              <div><p style={{ color:"#fff",fontWeight:700,fontSize:12 }}>UPHC Health Bot</p><p style={{ color:"rgba(255,255,255,.6)",fontSize:9 }}>🟢 Online</p></div>
-            </div>
+            <div style={{ background:"#075E54",display:"flex",alignItems:"center",gap:8,padding:"10px 12px" }}><div style={{ width:32,height:32,borderRadius:"50%",background:"#25D366",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14 }}>🏥</div><div><p style={{ color:"#fff",fontWeight:700,fontSize:12 }}>UPHC Health Bot</p><p style={{ color:"rgba(255,255,255,.6)",fontSize:9 }}>🟢 Online</p></div></div>
             <div style={{ background:"#ECE5DD",padding:"8px 7px",minHeight:290,display:"flex",flexDirection:"column",gap:5 }}>
-              {msgs.map((m,i)=>(<div key={i} style={{ display:"flex",justifyContent:m.f==="usr"?"flex-end":"flex-start" }}><div style={{ maxWidth:"88%",borderRadius:10,padding:"6px 9px",background:m.f==="usr"?"#DCF8C6":"#fff",boxShadow:"0 1px 3px rgba(0,0,0,.1)" }}><p style={{ fontSize:9,whiteSpace:"pre-wrap",color:"#111",lineHeight:1.5 }} dangerouslySetInnerHTML={{__html:m.m.replace(/\*(.*?)\*/g,"<b>$1</b>")}}/><p style={{ fontSize:7,textAlign:"right",color:"#888",marginTop:2 }}>{m.t} ✓✓</p></div></div>))}
+              {msgs.map((m,i)=>(<div key={i} style={{ display:"flex",justifyContent:m.f==="usr"?"flex-end":"flex-start" }}><div style={{ maxWidth:"88%",borderRadius:10,padding:"6px 9px",background:m.f==="usr"?"#DCF8C6":"#fff" }}><p style={{ fontSize:9,whiteSpace:"pre-wrap",color:"#111",lineHeight:1.5 }} dangerouslySetInnerHTML={{__html:m.m.replace(/\*(.*?)\*/g,"<b>$1</b>")}}/><p style={{ fontSize:7,textAlign:"right",color:"#888",marginTop:2 }}>{m.t}</p></div></div>))}
             </div>
-            <div style={{ display:"flex",gap:6,padding:"7px 8px",background:"#F0F0F0",alignItems:"center" }}><div style={{ flex:1,background:"#fff",borderRadius:20,padding:"6px 10px",fontSize:9,color:"#888" }}>Type a message...</div><div style={{ width:28,height:28,borderRadius:"50%",background:"#25D366",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12 }}>🎤</div></div>
+            <div style={{ display:"flex",gap:6,padding:"7px 8px",background:"#F0F0F0",alignItems:"center" }}><div style={{ flex:1,background:"#fff",borderRadius:20,padding:"6px 10px",fontSize:9,color:"#888" }}>Type…</div><div style={{ width:28,height:28,borderRadius:"50%",background:"#25D366",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12 }}>🎤</div></div>
           </div>
         </div>
         <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:10 }}>
           <p style={{ fontSize:10,fontWeight:700,color:"rgba(255,255,255,.4)",textTransform:"uppercase",letterSpacing:1.5 }}>SMS — Feature Phone</p>
-          <div className="hover-lift" style={{ width:"100%",maxWidth:175,borderRadius:20,overflow:"hidden",boxShadow:"0 16px 40px rgba(0,0,0,.5)",background:"#2D2D2D",border:"5px solid #2D2D2D" }}>
-            <div style={{ background:"#9BA888",padding:"12px 10px",minHeight:160 }}><p style={{ fontSize:9,fontFamily:"monospace",color:"#2D4A0E",lineHeight:1.8 }}><b>📩 New Message</b><br/>From: UPHC-104<br/>──────────────<br/><b>UPHC ALERT: Token A-42. OPD Counter 3 in 30 mins. Helpline: 104</b></p></div>
+          <div style={{ width:"100%",maxWidth:175,borderRadius:20,overflow:"hidden",background:"#2D2D2D",border:"5px solid #2D2D2D" }}>
+            <div style={{ background:"#9BA888",padding:"12px 10px",minHeight:160 }}><p style={{ fontSize:9,fontFamily:"monospace",color:"#2D4A0E",lineHeight:1.8 }}><b>📩 New Message</b><br/>From: UPHC-104<br/>──────────────<br/><b>UPHC ALERT: Token A-42. OPD 3 in 30 mins.</b></p></div>
             <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:2,padding:5,background:"#333" }}>{[1,2,3,4,5,6,7,8,9,"*",0,"#"].map(k=><div key={k} style={{ padding:"8px 0",textAlign:"center",fontSize:12,fontWeight:700,color:"#fff",background:"#444",borderRadius:3 }}>{k}</div>)}</div>
           </div>
         </div>
@@ -998,22 +1439,26 @@ function DashView({ t, queue, doneCount, updateStatus }) {
 
   useEffect(()=>setLocalQueue(queue),[queue]);
 
-  const handleNoteSave = (dbId,notes,prescription) =>
-    setLocalQueue(q=>q.map(p=>p.dbId===dbId?{...p,notes,prescription}:p));
+  const handleNoteSave = (dbId,notes,prescriptionJson) =>
+    setLocalQueue(q=>q.map(p=>p.dbId===dbId?{...p,notes,prescription:prescriptionJson}:p));
 
   const waiting = localQueue.filter(p=>p.status==="waiting");
   const called  = localQueue.filter(p=>p.status==="called");
-  const stats   = {
-    waiting: waiting.length,
-    called:  called.length,
-    urgent:  localQueue.filter(p=>p.urgency==="red").length,
-    avg:     waiting.length ? Math.round(waiting.reduce((s,p)=>s+p.wait,0)/waiting.length) : 0,
-  };
+  const stats   = { waiting:waiting.length,called:called.length,urgent:localQueue.filter(p=>p.urgency==="red").length,avg:waiting.length?Math.round(waiting.reduce((s,p)=>s+p.wait,0)/waiting.length):0 };
 
   const handleAction = async (p,action) => {
     if(action==="callin"){ setCalling(c=>({...c,[p.id]:true})); await updateStatus(p.dbId,"called"); setCalling(c=>({...c,[p.id]:false})); }
     else if(action==="noshow") await updateStatus(p.dbId,"noshow");
     else if(action==="done")   await updateStatus(p.dbId,"completed");
+  };
+
+  const getPrescriptionText = (prescriptionJson) => {
+    if (!prescriptionJson) return null;
+    try {
+      const rx = JSON.parse(prescriptionJson);
+      if (!rx.items?.length) return rx.notes || null;
+      return rx.items.map((item,i)=>`${i+1}. ${item.name} ${item.strength} — ${item.freq} × ${item.duration}, ${item.timing}`).join("\n");
+    } catch { return prescriptionJson; }
   };
 
   const hourly=[{l:"8-9",n:12},{l:"9-10",n:19},{l:"10-11",n:24},{l:"11-12",n:20},{l:"12-1",n:9},{l:"1-2",n:6}];
@@ -1039,7 +1484,6 @@ function DashView({ t, queue, doneCount, updateStatus }) {
         </div>
       </div>
 
-      {/* Stats */}
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20 }}>
         {[{l:"Waiting",v:stats.waiting,c:"#14B8A6",i:"👥",g:"linear-gradient(135deg,rgba(20,184,166,.2),rgba(8,145,178,.1))"},
           {l:"Called In",v:stats.called,c:"#A78BFA",i:"📢",g:"linear-gradient(135deg,rgba(167,139,250,.2),rgba(139,92,246,.1))"},
@@ -1065,6 +1509,7 @@ function DashView({ t, queue, doneCount, updateStatus }) {
             {filtered.map(p=>{
               const tc=TC[p.urgency]||TC.yellow;
               const isCalled=p.status==="called";
+              const rxText=getPrescriptionText(p.prescription);
               return (
                 <div key={p.id} className="glass-card hover-lift" style={{ borderRadius:22,padding:18,
                   background:isCalled?"linear-gradient(145deg,rgba(167,139,250,.12),rgba(139,92,246,.08))":"rgba(255,255,255,.04)",
@@ -1077,8 +1522,8 @@ function DashView({ t, queue, doneCount, updateStatus }) {
                     </div>
                     <span style={{ fontSize:11,color:"rgba(255,255,255,.5)",fontWeight:700 }}>⏳ {p.wait}m</span>
                   </div>
-                  <p style={{ fontSize:12,color:"rgba(255,255,255,.6)",marginBottom:6,fontWeight:600 }}>👤 {p.name} · {p.time}</p>
-                  <p style={{ fontSize:11,color:"rgba(255,255,255,.45)",marginBottom:10 }}>👨‍⚕️ {p.doctor} &nbsp;·&nbsp; 🏥 {p.counter}</p>
+                  <p style={{ fontSize:12,color:"rgba(255,255,255,.6)",marginBottom:5,fontWeight:600 }}>👤 {p.name} · {p.time}</p>
+                  <p style={{ fontSize:11,color:"rgba(255,255,255,.4)",marginBottom:10 }}>👨‍⚕️ {p.doctor} · 🏥 {p.counter}</p>
                   <div style={{ background:"rgba(255,255,255,.04)",borderRadius:12,padding:"10px 12px",marginBottom:10,border:"1px solid rgba(255,255,255,.08)" }}>
                     <p style={{ fontSize:9,color:"rgba(255,255,255,.4)",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:5 }}>Patient's Words</p>
                     <p style={{ fontSize:12,fontStyle:"italic",color:"rgba(255,255,255,.8)",lineHeight:1.5 }}>"{p.raw}"</p>
@@ -1089,10 +1534,10 @@ function DashView({ t, queue, doneCount, updateStatus }) {
                       {p.clinical.map(c=><span key={c} className="chip" style={{ background:"rgba(20,184,166,.15)",color:"#14B8A6",border:"1px solid rgba(20,184,166,.25)" }}>{c}</span>)}
                     </div>
                   </div>
-                  {p.prescription&&(
+                  {rxText&&(
                     <div style={{ marginBottom:10,padding:"8px 12px",borderRadius:10,background:"rgba(99,102,241,.08)",border:"1px solid rgba(99,102,241,.2)" }}>
                       <p style={{ fontSize:9,color:"rgba(167,139,250,.7)",textTransform:"uppercase",letterSpacing:.5,marginBottom:4 }}>💊 Prescription</p>
-                      <p style={{ fontSize:11,color:"rgba(255,255,255,.7)",fontFamily:"monospace",lineHeight:1.5,whiteSpace:"pre-wrap" }}>{p.prescription}</p>
+                      <p style={{ fontSize:11,color:"rgba(255,255,255,.7)",fontFamily:"monospace",lineHeight:1.6,whiteSpace:"pre-wrap" }}>{rxText}</p>
                     </div>
                   )}
                   <div style={{ display:"flex",gap:6 }}>
@@ -1110,13 +1555,7 @@ function DashView({ t, queue, doneCount, updateStatus }) {
                 </div>
               );
             })}
-            {!filtered.length&&(
-              <div style={{ gridColumn:"1/-1",textAlign:"center",padding:"60px 0",color:"rgba(255,255,255,.3)" }}>
-                <div style={{ fontSize:56,marginBottom:12 }}>🎉</div>
-                <p style={{ fontWeight:700,fontSize:18 }}>Queue is clear!</p>
-                <p style={{ fontSize:13,marginTop:6 }}>All patients attended to today</p>
-              </div>
-            )}
+            {!filtered.length&&<div style={{ gridColumn:"1/-1",textAlign:"center",padding:"60px 0",color:"rgba(255,255,255,.3)" }}><div style={{ fontSize:56,marginBottom:12 }}>🎉</div><p style={{ fontWeight:700,fontSize:18 }}>Queue is clear!</p></div>}
           </div>
         </>
       )}
@@ -1126,36 +1565,13 @@ function DashView({ t, queue, doneCount, updateStatus }) {
           <GCard>
             <h3 style={{ fontSize:14,fontWeight:700,marginBottom:20 }}>📊 Patients per Hour</h3>
             <div style={{ display:"flex",alignItems:"flex-end",gap:8,height:130 }}>
-              {hourly.map(d=>(
-                <div key={d.l} style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6 }}>
-                  <span style={{ fontSize:11,fontWeight:700,color:"rgba(255,255,255,.8)" }}>{d.n}</span>
-                  <div style={{ width:"100%",borderRadius:"8px 8px 0 0",background:"linear-gradient(to top,#14B8A6,#0891B2)",height:`${(d.n/maxH)*100}px`,minHeight:4,boxShadow:"0 -4px 20px rgba(20,184,166,.3)",transition:"height .5s" }}/>
-                  <span style={{ fontSize:9,color:"rgba(255,255,255,.4)",textAlign:"center" }}>{d.l}</span>
-                </div>
-              ))}
+              {hourly.map(d=>(<div key={d.l} style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6 }}><span style={{ fontSize:11,fontWeight:700,color:"rgba(255,255,255,.8)" }}>{d.n}</span><div style={{ width:"100%",borderRadius:"8px 8px 0 0",background:"linear-gradient(to top,#14B8A6,#0891B2)",height:`${(d.n/maxH)*100}px`,minHeight:4 }}/><span style={{ fontSize:9,color:"rgba(255,255,255,.4)" }}>{d.l}</span></div>))}
             </div>
           </GCard>
           <GCard>
             <h3 style={{ fontSize:14,fontWeight:700,marginBottom:18 }}>🏥 Department Distribution</h3>
-            {deptDist.map(d=>(
-              <div key={d.d} style={{ display:"flex",alignItems:"center",gap:12,marginBottom:14 }}>
-                <span style={{ fontSize:11,color:"rgba(255,255,255,.8)",width:110,flexShrink:0,fontWeight:600 }}>{d.d}</span>
-                <div style={{ flex:1,height:8,borderRadius:4,background:"rgba(255,255,255,.08)",overflow:"hidden" }}>
-                  <div style={{ height:"100%",borderRadius:4,background:d.c,width:`${(d.n/total)*100}%`,boxShadow:`0 0 12px ${d.c}60`,transition:"width .7s" }}/>
-                </div>
-                <span style={{ fontSize:11,fontWeight:900,color:"rgba(255,255,255,.8)",width:24,textAlign:"right" }}>{d.n}</span>
-              </div>
-            ))}
+            {deptDist.map(d=>(<div key={d.d} style={{ display:"flex",alignItems:"center",gap:12,marginBottom:14 }}><span style={{ fontSize:11,color:"rgba(255,255,255,.8)",width:110,flexShrink:0,fontWeight:600 }}>{d.d}</span><div style={{ flex:1,height:8,borderRadius:4,background:"rgba(255,255,255,.08)",overflow:"hidden" }}><div style={{ height:"100%",borderRadius:4,background:d.c,width:`${(d.n/total)*100}%` }}/></div><span style={{ fontSize:11,fontWeight:900,color:"rgba(255,255,255,.8)",width:24,textAlign:"right" }}>{d.n}</span></div>))}
           </GCard>
-          <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10 }}>
-            {[{i:"⏰",l:"Peak Hour",v:"10–11 AM"},{i:"😊",l:"Satisfaction",v:"4.6 / 5 ⭐"},{i:"🚫",l:"No-shows",v:"3 today"},{i:"📊",l:"Avg Daily",v:"89 patients"},{i:"💊",l:"Top Diagnosis",v:"Fever"},{i:"⚡",l:"Urgent Rate",v:"12%"}].map(m=>(
-              <div key={m.l} className="glass-card hover-lift" style={{ borderRadius:18,padding:"16px 12px",textAlign:"center" }}>
-                <p style={{ fontSize:26 }}>{m.i}</p>
-                <p style={{ fontSize:15,fontWeight:900,marginTop:8 }}>{m.v}</p>
-                <p style={{ fontSize:9,color:"rgba(255,255,255,.4)",marginTop:4,textTransform:"uppercase",letterSpacing:.5 }}>{m.l}</p>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -1165,7 +1581,7 @@ function DashView({ t, queue, doneCount, updateStatus }) {
 }
 
 /* ─── DISPLAY BOARD ──────────────────────────────────────────────────────── */
-function DisplayBoard({ t, queue }) {
+function DisplayBoard({ t, queue, openCount }) {
   const [time, setTime] = useState(new Date());
   useEffect(()=>{const i=setInterval(()=>setTime(new Date()),1000);return()=>clearInterval(i);},[]);
   const called  = queue.filter(p=>p.status==="called");
@@ -1177,12 +1593,7 @@ function DisplayBoard({ t, queue }) {
       <div style={{ position:"absolute",inset:0,overflow:"hidden" }}>
         <div style={{ position:"absolute",top:-100,left:-100,width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(20,184,166,.12),transparent 70%)",filter:"blur(40px)" }}/>
         <div style={{ position:"absolute",bottom:-100,right:-100,width:600,height:600,borderRadius:"50%",background:"radial-gradient(circle,rgba(59,130,246,.1),transparent 70%)",filter:"blur(50px)" }}/>
-        <svg style={{ position:"absolute",bottom:40,left:0,right:0,width:"100%",opacity:.05 }} height="60" viewBox="0 0 1200 60">
-          <polyline points="0,30 80,30 110,30 130,8 150,52 170,3 190,57 210,30 350,30 380,22 400,38 420,30 600,30 630,18 650,42 670,30 850,30 880,12 900,48 920,30 1100,30 1130,10 1150,50 1170,30 1200,30"
-            fill="none" stroke="#14B8A6" strokeWidth="2.5" strokeLinecap="round"/>
-        </svg>
       </div>
-      {/* Header */}
       <div style={{ position:"relative",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"28px 36px 22px",borderBottom:"1px solid rgba(255,255,255,.06)" }}>
         <div style={{ display:"flex",alignItems:"center",gap:18 }}>
           <div className="heartbeat" style={{ width:60,height:60,borderRadius:20,background:"linear-gradient(135deg,#14B8A6,#0891B2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,boxShadow:"0 6px 24px rgba(20,184,166,.5)" }}>🏥</div>
@@ -1200,25 +1611,19 @@ function DisplayBoard({ t, queue }) {
       </div>
 
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1.5fr",gap:28,padding:"28px 36px",position:"relative" }}>
-        {/* Now Serving */}
         <div>
           <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:18 }}>
             <div className="blink" style={{ width:10,height:10,borderRadius:"50%",background:"#F5A623",boxShadow:"0 0 12px #F5A623" }}/>
             <p style={{ fontSize:12,fontWeight:800,letterSpacing:2.5,textTransform:"uppercase",color:"#F5A623" }}>{t.nowServing}</p>
           </div>
-          {called.length===0&&(
-            <div style={{ borderRadius:20,padding:30,background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",textAlign:"center" }}>
-              <p style={{ fontSize:36,marginBottom:10 }}>⏳</p>
-              <p style={{ fontSize:14,color:"rgba(255,255,255,.3)" }}>Awaiting next call</p>
-            </div>
-          )}
+          {called.length===0&&<div style={{ borderRadius:20,padding:30,background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",textAlign:"center" }}><p style={{ fontSize:36,marginBottom:10 }}>⏳</p><p style={{ fontSize:14,color:"rgba(255,255,255,.3)" }}>Awaiting next call</p></div>}
           {called.map(p=>{
             const tc=TC[p.urgency]||TC.yellow;
             return (
               <div key={p.id} style={{ borderRadius:22,padding:26,background:"linear-gradient(145deg,rgba(167,139,250,.18),rgba(124,58,237,.1))",border:"1px solid rgba(167,139,250,.35)",boxShadow:"0 8px 40px rgba(124,58,237,.25)",marginBottom:12 }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
                   <div>
-                    <div style={{ fontSize:72,fontWeight:900,color:"#F5A623",lineHeight:1,letterSpacing:"-2px",textShadow:"0 4px 24px rgba(245,166,35,.5)" }}>{p.id}</div>
+                    <div style={{ fontSize:72,fontWeight:900,color:"#F5A623",lineHeight:1,textShadow:"0 4px 24px rgba(245,166,35,.5)" }}>{p.id}</div>
                     <span className="chip" style={{ background:tc.badge,color:"#fff",marginTop:6,display:"inline-block" }}>{tc.label}</span>
                   </div>
                   <div style={{ textAlign:"right" }}>
@@ -1226,15 +1631,15 @@ function DisplayBoard({ t, queue }) {
                     <p style={{ fontSize:13,color:"rgba(255,255,255,.5)",marginTop:6 }}>Counter: {p.counter}</p>
                   </div>
                 </div>
-                <div style={{ marginTop:14,paddingTop:14,borderTop:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <div style={{ marginTop:14,paddingTop:14,borderTop:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between" }}>
                   <p style={{ fontSize:15,fontWeight:700 }}>👤 {p.name}</p>
-                  <span style={{ fontSize:12,background:"rgba(255,255,255,.1)",padding:"5px 14px",borderRadius:20,border:"1px solid rgba(255,255,255,.1)" }}>{p.doctor}</span>
+                  <span style={{ fontSize:12,background:"rgba(255,255,255,.1)",padding:"5px 14px",borderRadius:20 }}>{p.doctor}</span>
                 </div>
               </div>
             );
           })}
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:14 }}>
-            {[{l:"Total Waiting",v:waiting.length,c:"#14B8A6"},{l:"Avg Wait",v:`${avgWait} min`,c:"#F5A623"},{l:"Called In",v:called.length,c:"#A78BFA"},{l:"Departments",v:"6 Open",c:"#4ADE80"}].map(s=>(
+            {[{l:"Total Waiting",v:waiting.length,c:"#14B8A6"},{l:"Avg Wait",v:`${avgWait} min`,c:"#F5A623"},{l:"Called In",v:called.length,c:"#A78BFA"},{l:"Depts Open",v:`${openCount} Open`,c:"#4ADE80"}].map(s=>(
               <div key={s.l} style={{ borderRadius:16,padding:"14px 16px",background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.07)" }}>
                 <p style={{ fontSize:26,fontWeight:900,color:s.c,lineHeight:1,textShadow:`0 0 20px ${s.c}60` }}>{s.v}</p>
                 <p style={{ fontSize:10,color:"rgba(255,255,255,.4)",marginTop:5,fontWeight:600 }}>{s.l}</p>
@@ -1242,20 +1647,16 @@ function DisplayBoard({ t, queue }) {
             ))}
           </div>
         </div>
-        {/* Next Queue */}
         <div>
           <p style={{ fontSize:12,fontWeight:800,letterSpacing:2.5,textTransform:"uppercase",color:"rgba(255,255,255,.3)",marginBottom:18 }}>{t.nextTokens}</p>
           <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
             {waiting.slice(0,8).map((p,i)=>{
               const tc=TC[p.urgency]||TC.yellow;
               return (
-                <div key={p.id} style={{ display:"flex",alignItems:"center",justifyContent:"space-between",borderRadius:16,padding:"14px 22px",background:`rgba(255,255,255,${.06-i*.006})`,borderLeft:`3px solid ${tc.badge}`,transition:"opacity .3s",opacity:Math.max(.3,1-i*.09) }}>
+                <div key={p.id} style={{ display:"flex",alignItems:"center",justifyContent:"space-between",borderRadius:16,padding:"14px 22px",background:`rgba(255,255,255,${.06-i*.006})`,borderLeft:`3px solid ${tc.badge}`,opacity:Math.max(.3,1-i*.09) }}>
                   <div style={{ display:"flex",alignItems:"center",gap:18 }}>
-                    <span style={{ fontSize:30,fontWeight:900,color:"#F1F5F9",letterSpacing:"-.5px",minWidth:70,fontVariantNumeric:"tabular-nums" }}>{p.id}</span>
-                    <div>
-                      <p style={{ fontSize:15,fontWeight:700 }}>{p.dept}</p>
-                      <p style={{ fontSize:11,color:"rgba(255,255,255,.45)",marginTop:3 }}>👤 {p.name}</p>
-                    </div>
+                    <span style={{ fontSize:30,fontWeight:900,color:"#F1F5F9",minWidth:70,fontVariantNumeric:"tabular-nums" }}>{p.id}</span>
+                    <div><p style={{ fontSize:15,fontWeight:700 }}>{p.dept}</p><p style={{ fontSize:11,color:"rgba(255,255,255,.45)",marginTop:3 }}>👤 {p.name}</p></div>
                   </div>
                   <div style={{ textAlign:"right" }}>
                     <p style={{ fontSize:20,fontWeight:900,color:"#14B8A6" }}>~{p.wait}m</p>
@@ -1281,64 +1682,29 @@ function DisplayBoard({ t, queue }) {
 
 /* ─── FEEDBACK VIEW ──────────────────────────────────────────────────────── */
 function FeedbackView({ t }) {
-  const [rating, setRating]   = useState(0);
-  const [hover, setHover]     = useState(0);
-  const [aspects, setAspects] = useState([]);
-  const [comment, setComment] = useState("");
-  const [done, setDone]       = useState(false);
-  const aspectList = ["Wait time","Staff behavior","Cleanliness","Doctor consultation","Booking experience","Overall care"];
-  const labels = ["","Poor","Fair","Good","Very Good","Excellent"];
-  const colors = ["","#EF4444","#F97316","#F59E0B","#22C55E","#14B8A6"];
-
-  if (done) return (
-    <div className="fade-in" style={{ textAlign:"center",padding:"60px 20px" }}>
-      <div style={{ fontSize:80,marginBottom:20 }}>🙏</div>
-      <h2 style={{ fontSize:28,fontWeight:900,marginBottom:10 }}>{t.feedbackThanks}</h2>
-      <p style={{ color:"rgba(255,255,255,.5)",fontSize:14,lineHeight:1.7,maxWidth:340,margin:"0 auto 28px" }}>Your feedback helps us improve care for everyone in our community.</p>
-      <div className="token-pop glass-card" style={{ borderRadius:24,padding:28,display:"inline-block",minWidth:240 }}>
-        <p style={{ fontSize:52,lineHeight:1 }}>{"⭐".repeat(rating)}</p>
-        <p style={{ fontSize:22,fontWeight:900,marginTop:12,color:colors[rating] }}>{labels[rating]}</p>
-        <p style={{ fontSize:11,color:"rgba(255,255,255,.4)",marginTop:5 }}>Your rating · Today</p>
-      </div>
-    </div>
-  );
-
+  const [rating,setRating]=useState(0);const [hover,setHover]=useState(0);const [aspects,setAspects]=useState([]);const [comment,setComment]=useState("");const [done,setDone]=useState(false);
+  const aspectList=["Wait time","Staff behavior","Cleanliness","Doctor consultation","Booking experience","Overall care"];
+  const labels=["","Poor","Fair","Good","Very Good","Excellent"];
+  const colors=["","#EF4444","#F97316","#F59E0B","#22C55E","#14B8A6"];
+  if(done)return(<div className="fade-in" style={{ textAlign:"center",padding:"60px 20px" }}><div style={{ fontSize:80,marginBottom:20 }}>🙏</div><h2 style={{ fontSize:28,fontWeight:900,marginBottom:10 }}>{t.feedbackThanks}</h2><div className="token-pop glass-card" style={{ borderRadius:24,padding:28,display:"inline-block",minWidth:240,marginTop:20 }}><p style={{ fontSize:52,lineHeight:1 }}>{"⭐".repeat(rating)}</p><p style={{ fontSize:22,fontWeight:900,marginTop:12,color:colors[rating] }}>{labels[rating]}</p></div></div>);
   return (
     <div className="slide-up" style={{ display:"flex",flexDirection:"column",gap:16 }}>
-      <div>
-        <h2 style={{ fontSize:24,fontWeight:900,marginBottom:4 }}>{t.rateExp}</h2>
-        <p style={{ fontSize:13,color:"rgba(255,255,255,.5)" }}>Help us improve your experience at UPHC</p>
-      </div>
+      <div><h2 style={{ fontSize:24,fontWeight:900,marginBottom:4 }}>{t.rateExp}</h2><p style={{ fontSize:13,color:"rgba(255,255,255,.5)" }}>Help us improve your experience</p></div>
       <GCard style={{ textAlign:"center" }}>
-        <div style={{ width:64,height:64,borderRadius:20,background:"linear-gradient(135deg,rgba(20,184,166,.2),rgba(8,145,178,.2))",border:"1px solid rgba(20,184,166,.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 18px" }}>🏥</div>
         <p style={{ fontSize:14,color:"rgba(255,255,255,.6)",marginBottom:22,fontWeight:500 }}>How was your visit today?</p>
         <div style={{ display:"flex",justifyContent:"center",gap:8,marginBottom:14 }}>
-          {[1,2,3,4,5].map(s=>(
-            <button key={s} onMouseEnter={()=>setHover(s)} onMouseLeave={()=>setHover(0)} onClick={()=>setRating(s)}
-              style={{ fontSize:46,background:"none",border:"none",cursor:"pointer",transition:"all .18s",
-                transform:(hover||rating)>=s?"scale(1.3)":"scale(1)",filter:(hover||rating)>=s?"none":"grayscale(1) opacity(.25)",
-                textShadow:(hover||rating)>=s?`0 4px 16px ${colors[hover||rating]}80`:"none" }}>⭐</button>
-          ))}
+          {[1,2,3,4,5].map(s=>(<button key={s} onMouseEnter={()=>setHover(s)} onMouseLeave={()=>setHover(0)} onClick={()=>setRating(s)} style={{ fontSize:46,background:"none",border:"none",cursor:"pointer",transition:"all .18s",transform:(hover||rating)>=s?"scale(1.3)":"scale(1)",filter:(hover||rating)>=s?"none":"grayscale(1) opacity(.25)" }}>⭐</button>))}
         </div>
         <p style={{ fontSize:18,fontWeight:800,color:colors[hover||rating]||"rgba(255,255,255,.3)",minHeight:28,transition:"color .2s" }}>{labels[hover||rating]}</p>
       </GCard>
       <GCard>
-        <p style={{ fontSize:13,fontWeight:700,marginBottom:14 }}>What went well? <span style={{ fontSize:11,color:"rgba(255,255,255,.4)",fontWeight:400 }}>(select all that apply)</span></p>
+        <p style={{ fontSize:13,fontWeight:700,marginBottom:14 }}>What went well?</p>
         <div style={{ display:"flex",flexWrap:"wrap",gap:8 }}>
-          {aspectList.map(a=>{
-            const sel=aspects.includes(a);
-            return (
-              <button key={a} onClick={()=>setAspects(prev=>sel?prev.filter(x=>x!==a):[...prev,a])}
-                style={{ padding:"8px 18px",borderRadius:24,fontSize:12,fontWeight:600,border:`1px solid ${sel?"rgba(20,184,166,.5)":"rgba(255,255,255,.12)"}`,cursor:"pointer",transition:"all .18s",
-                  background:sel?"linear-gradient(135deg,rgba(20,184,166,.25),rgba(8,145,178,.2))":"rgba(255,255,255,.05)",color:sel?"#5EEAD4":"rgba(255,255,255,.7)" }}>
-                {sel?"✓ ":""}{a}
-              </button>
-            );
-          })}
+          {aspectList.map(a=>{const sel=aspects.includes(a);return(<button key={a} onClick={()=>setAspects(prev=>sel?prev.filter(x=>x!==a):[...prev,a])} style={{ padding:"8px 18px",borderRadius:24,fontSize:12,fontWeight:600,border:`1px solid ${sel?"rgba(20,184,166,.5)":"rgba(255,255,255,.12)"}`,cursor:"pointer",transition:"all .18s",background:sel?"linear-gradient(135deg,rgba(20,184,166,.25),rgba(8,145,178,.2))":"rgba(255,255,255,.05)",color:sel?"#5EEAD4":"rgba(255,255,255,.7)" }}>{sel?"✓ ":""}{a}</button>);})}
         </div>
       </GCard>
       <GCard>
-        <p style={{ fontSize:13,fontWeight:700,marginBottom:12 }}>Additional comments <span style={{ fontSize:11,color:"rgba(255,255,255,.4)",fontWeight:400 }}>(optional)</span></p>
+        <p style={{ fontSize:13,fontWeight:700,marginBottom:12 }}>Additional comments</p>
         <textarea value={comment} onChange={e=>setComment(e.target.value)} rows={3} placeholder="Tell us how we can improve…" className="input-glass"
           style={{ width:"100%",padding:"12px 16px",borderRadius:14,fontSize:13,resize:"none",lineHeight:1.6,border:"1px solid rgba(255,255,255,.15)" }}/>
       </GCard>
