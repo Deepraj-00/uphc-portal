@@ -23,213 +23,369 @@ const extractSymptomsAI = async (text, lang) => {
 };
 
 /* ─── INDIAN MEDICINES DATABASE ──────────────────────────────────────────── */
+// ═══════════════════════════════════════════════════════════════
+// INSTRUCTIONS:
+// 1. Open App.jsx in VS Code
+// 2. Press Ctrl+F and search for: const MEDICINES = [
+// 3. Select from that line all the way to the closing ];
+//    (the entire MEDICINES array)
+// 4. Delete it
+// 5. Copy everything from this file and paste in its place
+// 6. Press Ctrl+S to save
+// ═══════════════════════════════════════════════════════════════
+
 const MEDICINES = [
-  // Analgesics & Antipyretics
-  {name:"Paracetamol",strengths:["125mg","250mg","500mg","650mg","1000mg"],type:"Tab/Syp"},
-  {name:"Ibuprofen",strengths:["200mg","400mg","600mg","800mg"],type:"Tab"},
-  {name:"Diclofenac",strengths:["25mg","50mg","75mg","100mg"],type:"Tab/Gel"},
-  {name:"Naproxen",strengths:["250mg","500mg"],type:"Tab"},
-  {name:"Aspirin",strengths:["75mg","150mg","325mg","650mg"],type:"Tab"},
-  {name:"Mefenamic Acid",strengths:["250mg","500mg"],type:"Tab"},
-  {name:"Ketorolac",strengths:["10mg","30mg"],type:"Tab/Inj"},
-  {name:"Tramadol",strengths:["50mg","100mg"],type:"Tab/Cap"},
-  {name:"Aceclofenac",strengths:["100mg"],type:"Tab"},
-  {name:"Nimesulide",strengths:["100mg"],type:"Tab"},
-  // Antibiotics
-  {name:"Amoxicillin",strengths:["250mg","500mg","875mg"],type:"Cap/Syp"},
-  {name:"Amoxicillin + Clavulanate",strengths:["375mg","625mg","1000mg"],type:"Tab"},
-  {name:"Ampicillin",strengths:["250mg","500mg"],type:"Cap/Inj"},
-  {name:"Azithromycin",strengths:["250mg","500mg"],type:"Tab"},
-  {name:"Clarithromycin",strengths:["250mg","500mg"],type:"Tab"},
-  {name:"Erythromycin",strengths:["250mg","500mg"],type:"Tab/Syp"},
-  {name:"Ciprofloxacin",strengths:["250mg","500mg","750mg"],type:"Tab"},
-  {name:"Levofloxacin",strengths:["250mg","500mg","750mg"],type:"Tab"},
-  {name:"Ofloxacin",strengths:["100mg","200mg","400mg"],type:"Tab"},
-  {name:"Norfloxacin",strengths:["400mg"],type:"Tab"},
-  {name:"Doxycycline",strengths:["100mg","200mg"],type:"Cap"},
-  {name:"Tetracycline",strengths:["250mg","500mg"],type:"Cap"},
-  {name:"Metronidazole",strengths:["200mg","400mg","500mg"],type:"Tab/Syp"},
-  {name:"Tinidazole",strengths:["500mg","1000mg"],type:"Tab"},
-  {name:"Cefixime",strengths:["100mg","200mg","400mg"],type:"Tab/Syp"},
-  {name:"Cefpodoxime",strengths:["100mg","200mg"],type:"Tab"},
-  {name:"Ceftriaxone",strengths:["250mg","500mg","1g"],type:"Inj"},
-  {name:"Cefuroxime",strengths:["250mg","500mg"],type:"Tab"},
-  {name:"Cotrimoxazole",strengths:["480mg","960mg"],type:"Tab/Syp"},
-  {name:"Clindamycin",strengths:["150mg","300mg"],type:"Cap"},
-  {name:"Linezolid",strengths:["600mg"],type:"Tab"},
-  {name:"Nitrofurantoin",strengths:["50mg","100mg"],type:"Cap"},
-  // Antifungals
-  {name:"Fluconazole",strengths:["50mg","100mg","150mg","200mg"],type:"Cap"},
-  {name:"Itraconazole",strengths:["100mg","200mg"],type:"Cap"},
-  {name:"Clotrimazole",strengths:["1%","2%"],type:"Cream/Lotion"},
-  {name:"Ketoconazole",strengths:["200mg","2%"],type:"Tab/Cream"},
-  {name:"Terbinafine",strengths:["250mg","1%"],type:"Tab/Cream"},
-  {name:"Nystatin",strengths:["100000IU"],type:"Tab/Syp"},
-  // Antivirals
-  {name:"Acyclovir",strengths:["200mg","400mg","800mg"],type:"Tab/Cream"},
-  {name:"Oseltamivir",strengths:["30mg","45mg","75mg"],type:"Cap"},
-  {name:"Valacyclovir",strengths:["500mg","1000mg"],type:"Tab"},
-  // Antiparasitics
-  {name:"Albendazole",strengths:["200mg","400mg"],type:"Tab/Syp"},
-  {name:"Mebendazole",strengths:["100mg","500mg"],type:"Tab/Syp"},
-  {name:"Ivermectin",strengths:["3mg","6mg","12mg"],type:"Tab"},
-  {name:"Chloroquine",strengths:["150mg","500mg"],type:"Tab"},
-  {name:"Hydroxychloroquine",strengths:["200mg","400mg"],type:"Tab"},
-  {name:"Primaquine",strengths:["2.5mg","7.5mg"],type:"Tab"},
-  // Antihypertensives
-  {name:"Amlodipine",strengths:["2.5mg","5mg","10mg"],type:"Tab"},
-  {name:"Atenolol",strengths:["25mg","50mg","100mg"],type:"Tab"},
-  {name:"Metoprolol",strengths:["25mg","50mg","100mg"],type:"Tab"},
-  {name:"Enalapril",strengths:["2.5mg","5mg","10mg","20mg"],type:"Tab"},
-  {name:"Ramipril",strengths:["1.25mg","2.5mg","5mg","10mg"],type:"Cap"},
-  {name:"Losartan",strengths:["25mg","50mg","100mg"],type:"Tab"},
-  {name:"Telmisartan",strengths:["20mg","40mg","80mg"],type:"Tab"},
-  {name:"Hydrochlorothiazide",strengths:["12.5mg","25mg"],type:"Tab"},
-  {name:"Furosemide",strengths:["20mg","40mg","80mg"],type:"Tab/Inj"},
-  {name:"Nifedipine",strengths:["5mg","10mg","20mg","30mg"],type:"Tab/Cap"},
-  {name:"Clonidine",strengths:["100mcg","150mcg"],type:"Tab"},
-  {name:"Spironolactone",strengths:["25mg","50mg","100mg"],type:"Tab"},
-  // Antidiabetics
-  {name:"Metformin",strengths:["250mg","500mg","750mg","1000mg"],type:"Tab"},
-  {name:"Glibenclamide",strengths:["2.5mg","5mg"],type:"Tab"},
-  {name:"Glimepiride",strengths:["1mg","2mg","3mg","4mg"],type:"Tab"},
-  {name:"Gliclazide",strengths:["40mg","80mg","30mg MR"],type:"Tab"},
-  {name:"Pioglitazone",strengths:["7.5mg","15mg","30mg"],type:"Tab"},
-  {name:"Voglibose",strengths:["0.2mg","0.3mg"],type:"Tab"},
-  {name:"Sitagliptin",strengths:["25mg","50mg","100mg"],type:"Tab"},
-  {name:"Dapagliflozin",strengths:["5mg","10mg"],type:"Tab"},
-  {name:"Insulin Regular",strengths:["40IU/mL","100IU/mL"],type:"Inj"},
-  {name:"Insulin NPH",strengths:["40IU/mL","100IU/mL"],type:"Inj"},
-  // Respiratory
-  {name:"Salbutamol",strengths:["2mg","4mg","100mcg inhaler"],type:"Tab/Inhaler/Syp"},
-  {name:"Terbutaline",strengths:["2.5mg","5mg"],type:"Tab/Inj"},
-  {name:"Theophylline",strengths:["100mg","200mg","300mg"],type:"Tab"},
-  {name:"Montelukast",strengths:["4mg","5mg","10mg"],type:"Tab/Chewable"},
-  {name:"Budesonide",strengths:["100mcg","200mcg","400mcg"],type:"Inhaler"},
-  {name:"Fluticasone",strengths:["50mcg","100mcg","250mcg"],type:"Inhaler"},
-  {name:"Ipratropium",strengths:["20mcg","40mcg"],type:"Inhaler"},
-  {name:"Formoterol",strengths:["6mcg","12mcg"],type:"Inhaler"},
-  {name:"Tiotropium",strengths:["9mcg","18mcg"],type:"Inhaler/Cap"},
-  {name:"Dextromethorphan",strengths:["10mg","15mg"],type:"Syp"},
-  {name:"Guaifenesin",strengths:["100mg","200mg"],type:"Syp/Tab"},
-  {name:"Ambroxol",strengths:["15mg","30mg","75mg"],type:"Tab/Syp"},
-  {name:"Bromhexine",strengths:["4mg","8mg"],type:"Tab/Syp"},
-  // Antihistamines
-  {name:"Cetirizine",strengths:["5mg","10mg"],type:"Tab/Syp"},
-  {name:"Levocetirizine",strengths:["2.5mg","5mg"],type:"Tab/Syp"},
-  {name:"Fexofenadine",strengths:["60mg","120mg","180mg"],type:"Tab"},
-  {name:"Loratadine",strengths:["10mg"],type:"Tab/Syp"},
-  {name:"Desloratadine",strengths:["2.5mg","5mg"],type:"Tab"},
-  {name:"Chlorpheniramine",strengths:["2mg","4mg"],type:"Tab/Syp"},
-  {name:"Hydroxyzine",strengths:["10mg","25mg"],type:"Tab"},
-  {name:"Promethazine",strengths:["10mg","25mg"],type:"Tab/Syp"},
-  // GI
-  {name:"Omeprazole",strengths:["10mg","20mg","40mg"],type:"Cap"},
-  {name:"Pantoprazole",strengths:["20mg","40mg"],type:"Tab"},
-  {name:"Rabeprazole",strengths:["10mg","20mg"],type:"Tab"},
-  {name:"Esomeprazole",strengths:["20mg","40mg"],type:"Cap"},
-  {name:"Ranitidine",strengths:["75mg","150mg","300mg"],type:"Tab"},
-  {name:"Famotidine",strengths:["20mg","40mg"],type:"Tab"},
-  {name:"Domperidone",strengths:["10mg"],type:"Tab/Syp"},
-  {name:"Metoclopramide",strengths:["5mg","10mg"],type:"Tab/Syp/Inj"},
-  {name:"Ondansetron",strengths:["4mg","8mg"],type:"Tab/Syp/Inj"},
-  {name:"Dicyclomine",strengths:["10mg","20mg"],type:"Tab/Syp/Inj"},
-  {name:"Hyoscine",strengths:["10mg","20mg"],type:"Tab"},
-  {name:"Loperamide",strengths:["2mg"],type:"Cap"},
-  {name:"ORS",strengths:["1 sachet in 200mL water"],type:"Sachet"},
-  {name:"Zinc Sulphate",strengths:["10mg","20mg"],type:"Tab/Syp"},
-  {name:"Lactulose",strengths:["3.35g/5mL"],type:"Syp"},
-  {name:"Bisacodyl",strengths:["5mg","10mg"],type:"Tab/Suppository"},
-  {name:"Activated Charcoal",strengths:["250mg"],type:"Cap"},
-  {name:"Sucralfate",strengths:["1g"],type:"Tab/Syp"},
-  {name:"Aluminium Hydroxide + Magnesium Hydroxide",strengths:["Regular","Forte"],type:"Tab/Syp"},
-  // Vitamins & Supplements
-  {name:"Vitamin B Complex",strengths:["Regular"],type:"Tab"},
-  {name:"Vitamin B12",strengths:["500mcg","1000mcg","1500mcg"],type:"Tab/Inj"},
-  {name:"Vitamin C",strengths:["250mg","500mg","1000mg"],type:"Tab"},
-  {name:"Vitamin D3",strengths:["1000IU","2000IU","60000IU"],type:"Tab/Drop/Cap"},
-  {name:"Calcium + Vitamin D3",strengths:["500mg+250IU","1000mg+500IU"],type:"Tab"},
-  {name:"Folic Acid",strengths:["400mcg","500mcg","1mg","5mg"],type:"Tab"},
-  {name:"Iron (Ferrous Sulphate)",strengths:["150mg","200mg"],type:"Tab/Syp"},
-  {name:"Ferrous Ascorbate",strengths:["100mg","150mg"],type:"Tab"},
-  {name:"Multivitamin",strengths:["Regular"],type:"Tab/Cap/Syp"},
-  {name:"Zinc",strengths:["10mg","20mg","50mg"],type:"Tab/Syp"},
-  {name:"Magnesium",strengths:["250mg","500mg"],type:"Tab"},
-  // Steroids
-  {name:"Prednisolone",strengths:["5mg","10mg","20mg","40mg"],type:"Tab"},
-  {name:"Dexamethasone",strengths:["0.5mg","4mg","8mg"],type:"Tab/Inj"},
-  {name:"Methylprednisolone",strengths:["4mg","8mg","16mg","32mg"],type:"Tab/Inj"},
-  {name:"Hydrocortisone",strengths:["10mg","20mg","100mg"],type:"Tab/Inj/Cream"},
-  {name:"Betamethasone",strengths:["0.1%"],type:"Cream/Lotion"},
-  {name:"Triamcinolone",strengths:["0.1%"],type:"Cream/Oint"},
-  // Dermatology
-  {name:"Mupirocin",strengths:["2%"],type:"Cream/Oint"},
-  {name:"Fusidic Acid",strengths:["2%"],type:"Cream"},
-  {name:"Calamine Lotion",strengths:["Regular"],type:"Lotion"},
-  {name:"Permethrin",strengths:["1%","5%"],type:"Cream/Lotion"},
-  {name:"Salicylic Acid",strengths:["2%","6%","12%"],type:"Cream/Gel"},
-  {name:"Silver Sulfadiazine",strengths:["1%"],type:"Cream"},
-  {name:"Povidone Iodine",strengths:["5%","10%"],type:"Solution/Ointment"},
-  // CNS
-  {name:"Diazepam",strengths:["2mg","5mg","10mg"],type:"Tab/Inj"},
-  {name:"Lorazepam",strengths:["0.5mg","1mg","2mg"],type:"Tab"},
-  {name:"Alprazolam",strengths:["0.25mg","0.5mg","1mg"],type:"Tab"},
-  {name:"Clonazepam",strengths:["0.25mg","0.5mg","1mg","2mg"],type:"Tab"},
-  {name:"Phenobarbitone",strengths:["30mg","60mg"],type:"Tab"},
-  {name:"Phenytoin",strengths:["50mg","100mg","300mg"],type:"Cap/Tab"},
-  {name:"Carbamazepine",strengths:["100mg","200mg","400mg"],type:"Tab"},
-  {name:"Valproic Acid",strengths:["200mg","500mg"],type:"Tab/Syp"},
-  {name:"Levetiracetam",strengths:["250mg","500mg","750mg","1000mg"],type:"Tab"},
-  {name:"Amitriptyline",strengths:["10mg","25mg","50mg","75mg"],type:"Tab"},
-  {name:"Fluoxetine",strengths:["10mg","20mg","40mg"],type:"Cap"},
-  {name:"Sertraline",strengths:["25mg","50mg","100mg"],type:"Tab"},
-  {name:"Escitalopram",strengths:["5mg","10mg","20mg"],type:"Tab"},
-  {name:"Haloperidol",strengths:["0.5mg","1mg","5mg","10mg"],type:"Tab"},
-  {name:"Risperidone",strengths:["0.5mg","1mg","2mg","3mg","4mg"],type:"Tab"},
-  {name:"Olanzapine",strengths:["2.5mg","5mg","10mg"],type:"Tab"},
-  // Eye/ENT
-  {name:"Ciprofloxacin Eye Drops",strengths:["0.3%"],type:"Eye Drops"},
-  {name:"Chloramphenicol Eye Drops",strengths:["0.5%","1%"],type:"Eye Drops"},
-  {name:"Tobramycin Eye Drops",strengths:["0.3%"],type:"Eye Drops"},
-  {name:"Dexamethasone Eye Drops",strengths:["0.1%"],type:"Eye Drops"},
-  {name:"Timolol Eye Drops",strengths:["0.25%","0.5%"],type:"Eye Drops"},
-  {name:"Latanoprost Eye Drops",strengths:["0.005%"],type:"Eye Drops"},
-  {name:"Xylometazoline Nasal Drops",strengths:["0.05%","0.1%"],type:"Nasal Drops"},
-  {name:"Beclomethasone Nasal Spray",strengths:["50mcg"],type:"Nasal Spray"},
-  {name:"Fluticasone Nasal Spray",strengths:["50mcg"],type:"Nasal Spray"},
-  {name:"Otosporin Ear Drops",strengths:["Regular"],type:"Ear Drops"},
-  // Cardiac
-  {name:"Digoxin",strengths:["0.0625mg","0.125mg","0.25mg"],type:"Tab"},
-  {name:"Atorvastatin",strengths:["10mg","20mg","40mg","80mg"],type:"Tab"},
-  {name:"Rosuvastatin",strengths:["5mg","10mg","20mg","40mg"],type:"Tab"},
-  {name:"Clopidogrel",strengths:["75mg","150mg","300mg"],type:"Tab"},
-  {name:"Warfarin",strengths:["1mg","2mg","5mg"],type:"Tab"},
-  {name:"Isosorbide Dinitrate",strengths:["5mg","10mg","20mg"],type:"Tab"},
-  {name:"Nitroglycerin",strengths:["0.5mg","2.6mg","6.4mg"],type:"Tab/Spray"},
-  {name:"Carvedilol",strengths:["3.125mg","6.25mg","12.5mg","25mg"],type:"Tab"},
-  {name:"Bisoprolol",strengths:["2.5mg","5mg","10mg"],type:"Tab"},
-  // Thyroid
-  {name:"Levothyroxine",strengths:["12.5mcg","25mcg","50mcg","75mcg","100mcg"],type:"Tab"},
-  {name:"Carbimazole",strengths:["5mg","10mg","20mg"],type:"Tab"},
-  {name:"Propylthiouracil",strengths:["50mg","100mg"],type:"Tab"},
-  // Immunization
-  {name:"OPV (Oral Polio Vaccine)",strengths:["2 drops"],type:"Oral"},
-  {name:"BCG Vaccine",strengths:["0.1mL"],type:"Inj"},
-  {name:"Hepatitis B Vaccine",strengths:["0.5mL","1mL"],type:"Inj"},
-  {name:"MMR Vaccine",strengths:["0.5mL"],type:"Inj"},
-  {name:"DPT Vaccine",strengths:["0.5mL"],type:"Inj"},
-  {name:"Typhoid Vaccine",strengths:["0.5mL"],type:"Inj"},
-  {name:"Tetanus Toxoid",strengths:["0.5mL"],type:"Inj"},
-  // Others
-  {name:"Chlorhexidine",strengths:["0.12%","0.2%","2%","4%"],type:"Solution/Gel"},
-  {name:"Glycerine",strengths:["Pure"],type:"Liquid/Suppository"},
-  {name:"Liquid Paraffin",strengths:["Pure"],type:"Liquid"},
-  {name:"Normal Saline",strengths:["0.9%","0.45%"],type:"Solution/Nasal"},
-  {name:"Dextrose",strengths:["5%","10%","25%","50%"],type:"Solution"},
-  {name:"Ringer Lactate",strengths:["Regular"],type:"Solution"},
-  {name:"Urea Cream",strengths:["10%","20%","40%"],type:"Cream"},
-  {name:"Aloe Vera Gel",strengths:["Regular"],type:"Gel"},
-  {name:"Antacid",strengths:["Regular","Forte"],type:"Tab/Syp"},
+
+  // ─── PAIN / FEVER / COLD ──────────────────────────────────────
+  { name:"Crocin 500",          brand:"GSK",         strengths:["500mg"],              type:"Tab",        category:"Pain/Fever",    composition:"Paracetamol 500mg" },
+  { name:"Crocin Advance",      brand:"GSK",         strengths:["650mg"],              type:"Tab",        category:"Pain/Fever",    composition:"Paracetamol 650mg" },
+  { name:"Dolo 650",            brand:"Micro Labs",  strengths:["650mg"],              type:"Tab",        category:"Pain/Fever",    composition:"Paracetamol 650mg" },
+  { name:"Dolo 500",            brand:"Micro Labs",  strengths:["500mg"],              type:"Tab",        category:"Pain/Fever",    composition:"Paracetamol 500mg" },
+  { name:"Calpol 500",          brand:"GSK",         strengths:["500mg"],              type:"Tab",        category:"Pain/Fever",    composition:"Paracetamol 500mg" },
+  { name:"Calpol Syrup",        brand:"GSK",         strengths:["125mg/5mL","250mg/5mL"], type:"Syp",    category:"Pain/Fever",    composition:"Paracetamol Syrup" },
+  { name:"Fevago",              brand:"Sun Pharma",  strengths:["500mg","650mg"],      type:"Tab",        category:"Pain/Fever",    composition:"Paracetamol" },
+  { name:"Combiflam",           brand:"Sanofi",      strengths:["Regular","Plus"],     type:"Tab/Syp",    category:"Pain/Fever",    composition:"Ibuprofen 400mg + Paracetamol 325mg" },
+  { name:"Brufen 400",          brand:"Abbott",      strengths:["400mg"],              type:"Tab",        category:"Pain/Fever",    composition:"Ibuprofen 400mg" },
+  { name:"Brufen 600",          brand:"Abbott",      strengths:["600mg"],              type:"Tab",        category:"Pain/Fever",    composition:"Ibuprofen 600mg" },
+  { name:"Ibugesic Plus",       brand:"Cipla",       strengths:["Regular"],            type:"Tab/Syp",    category:"Pain/Fever",    composition:"Ibuprofen + Paracetamol" },
+  { name:"Nise 100",            brand:"Dr Reddy's",  strengths:["100mg"],              type:"Tab",        category:"Pain/Fever",    composition:"Nimesulide 100mg" },
+  { name:"Nimulid 100",         brand:"Panacea Bio", strengths:["100mg"],              type:"Tab/Gel",    category:"Pain/Fever",    composition:"Nimesulide 100mg" },
+  { name:"Voveran 50",          brand:"Novartis",    strengths:["50mg"],               type:"Tab/Inj/Gel",category:"Pain/Fever",    composition:"Diclofenac 50mg" },
+  { name:"Voveran SR 100",      brand:"Novartis",    strengths:["100mg SR"],           type:"Tab",        category:"Pain/Fever",    composition:"Diclofenac Sodium SR 100mg" },
+  { name:"Hifenac P",           brand:"Intas",       strengths:["Regular"],            type:"Tab",        category:"Pain/Fever",    composition:"Aceclofenac 100mg + Paracetamol 325mg" },
+  { name:"Zerodol P",           brand:"Ipca",        strengths:["Regular"],            type:"Tab",        category:"Pain/Fever",    composition:"Aceclofenac 100mg + Paracetamol 325mg" },
+  { name:"Zerodol SP",          brand:"Ipca",        strengths:["Regular"],            type:"Tab",        category:"Pain/Fever",    composition:"Aceclofenac + Paracetamol + Serratiopeptidase" },
+  { name:"Naprosyn 500",        brand:"Roche",       strengths:["500mg"],              type:"Tab",        category:"Pain/Fever",    composition:"Naproxen 500mg" },
+  { name:"Meftal Spas",         brand:"Blue Cross",  strengths:["Regular"],            type:"Tab/Syp",    category:"Pain/Fever",    composition:"Mefenamic Acid + Dicyclomine" },
+  { name:"Meftal P",            brand:"Blue Cross",  strengths:["Regular"],            type:"Syp",        category:"Pain/Fever",    composition:"Mefenamic Acid Syrup" },
+
+  // ─── COLD / COUGH / ALLERGY ───────────────────────────────────
+  { name:"Cheston Cold",        brand:"Cipla",       strengths:["Regular","Total"],    type:"Tab/Syp",    category:"Cold/Cough",    composition:"Cetirizine + Phenylephrine + Paracetamol" },
+  { name:"Sinarest",            brand:"Centaur",     strengths:["Regular","LP","New"], type:"Tab",        category:"Cold/Cough",    composition:"Paracetamol + Cetirizine + Phenylephrine" },
+  { name:"Cetirizine 10",       brand:"Generic",     strengths:["10mg"],               type:"Tab",        category:"Cold/Allergy",  composition:"Cetirizine 10mg" },
+  { name:"Alerid 10",           brand:"Cipla",       strengths:["10mg"],               type:"Tab",        category:"Cold/Allergy",  composition:"Cetirizine 10mg" },
+  { name:"Okacet 10",           brand:"Cipla",       strengths:["10mg"],               type:"Tab",        category:"Cold/Allergy",  composition:"Cetirizine 10mg" },
+  { name:"Zyrtec 10",           brand:"J&J",         strengths:["10mg"],               type:"Tab",        category:"Cold/Allergy",  composition:"Cetirizine 10mg" },
+  { name:"Levocet 5",           brand:"Cipla",       strengths:["5mg"],                type:"Tab",        category:"Cold/Allergy",  composition:"Levocetirizine 5mg" },
+  { name:"L-Cet 5",             brand:"FDC",         strengths:["5mg"],                type:"Tab",        category:"Cold/Allergy",  composition:"Levocetirizine 5mg" },
+  { name:"Lorfast",             brand:"Sun Pharma",  strengths:["10mg"],               type:"Tab/Syp",    category:"Cold/Allergy",  composition:"Loratadine 10mg" },
+  { name:"Fexova 120",          brand:"Sun Pharma",  strengths:["120mg","180mg"],      type:"Tab",        category:"Cold/Allergy",  composition:"Fexofenadine" },
+  { name:"Allegra 120",         brand:"Sanofi",      strengths:["120mg","180mg"],      type:"Tab",        category:"Cold/Allergy",  composition:"Fexofenadine" },
+  { name:"Ascoril LS",          brand:"Glenmark",    strengths:["Regular"],            type:"Syp",        category:"Cold/Cough",    composition:"Levosalbutamol + Ambroxol + Guaifenesin" },
+  { name:"Ascoril Expectorant", brand:"Glenmark",    strengths:["Regular"],            type:"Syp",        category:"Cold/Cough",    composition:"Salbutamol + Bromhexine + Guaifenesin" },
+  { name:"Grilinctus",          brand:"Franco-Indian",strengths:["Regular"],           type:"Syp",        category:"Cold/Cough",    composition:"Dextromethorphan + Phenylephrine + Chlorpheniramine" },
+  { name:"Alex Syrup",          brand:"Glenmark",    strengths:["Regular"],            type:"Syp",        category:"Cold/Cough",    composition:"Dextromethorphan + Phenylephrine + Triprolidine" },
+  { name:"Koflet Syrup",        brand:"Himalaya",    strengths:["Regular"],            type:"Syp",        category:"Cold/Cough",    composition:"Herbal Cough Syrup" },
+  { name:"Benadryl Syrup",      brand:"J&J",         strengths:["Regular"],            type:"Syp",        category:"Cold/Cough",    composition:"Diphenhydramine + Ammonium Chloride" },
+  { name:"Zedex Syrup",         brand:"Cadila",      strengths:["Regular"],            type:"Syp",        category:"Cold/Cough",    composition:"Dextromethorphan + Ambroxol" },
+  { name:"Ambrodil S",          brand:"Aristo",      strengths:["30mg","75mg SR"],     type:"Tab/Syp",    category:"Cold/Cough",    composition:"Ambroxol" },
+  { name:"Mucosolvan",          brand:"Boehringer",  strengths:["30mg","75mg"],        type:"Tab/Syp",    category:"Cold/Cough",    composition:"Ambroxol" },
+  { name:"Solvin LS",           brand:"Boehringer",  strengths:["Regular"],            type:"Syp",        category:"Cold/Cough",    composition:"Levosalbutamol + Ambroxol + Guaifenesin" },
+  { name:"Nasoclear",           brand:"Franco-Indian",strengths:["0.9%"],              type:"Nasal Spray",category:"Cold/Nasal",    composition:"Normal Saline Nasal Spray" },
+  { name:"Otrivin",             brand:"Novartis",    strengths:["0.05%","0.1%"],       type:"Nasal Drops",category:"Cold/Nasal",    composition:"Xylometazoline" },
+  { name:"Nasivion",            brand:"Merck",       strengths:["0.025%","0.05%","0.1%"], type:"Nasal Drops",category:"Cold/Nasal", composition:"Oxymetazoline" },
+  { name:"Flomist Nasal Spray", brand:"Sun Pharma",  strengths:["50mcg"],              type:"Nasal Spray",category:"Cold/Nasal",    composition:"Fluticasone Propionate" },
+  { name:"Foracort Nasal",      brand:"Cipla",       strengths:["50mcg"],              type:"Nasal Spray",category:"Cold/Nasal",    composition:"Budesonide" },
+
+  // ─── ANTIBIOTICS ──────────────────────────────────────────────
+  { name:"Augmentin 625",       brand:"GSK",         strengths:["625mg"],              type:"Tab",        category:"Antibiotic",    composition:"Amoxicillin 500mg + Clavulanate 125mg" },
+  { name:"Augmentin 1000",      brand:"GSK",         strengths:["1000mg"],             type:"Tab",        category:"Antibiotic",    composition:"Amoxicillin 875mg + Clavulanate 125mg" },
+  { name:"Mox 500",             brand:"Ranbaxy",     strengths:["250mg","500mg"],      type:"Cap",        category:"Antibiotic",    composition:"Amoxicillin" },
+  { name:"Novamox 500",         brand:"Cipla",       strengths:["500mg"],              type:"Cap",        category:"Antibiotic",    composition:"Amoxicillin 500mg" },
+  { name:"Zithromax",           brand:"Pfizer",      strengths:["250mg","500mg"],      type:"Tab",        category:"Antibiotic",    composition:"Azithromycin" },
+  { name:"Azithral 500",        brand:"Alkem",       strengths:["250mg","500mg"],      type:"Tab",        category:"Antibiotic",    composition:"Azithromycin" },
+  { name:"Zithrox 500",         brand:"Cipla",       strengths:["250mg","500mg"],      type:"Tab",        category:"Antibiotic",    composition:"Azithromycin" },
+  { name:"Ciplox 500",          brand:"Cipla",       strengths:["250mg","500mg","750mg"], type:"Tab",     category:"Antibiotic",    composition:"Ciprofloxacin" },
+  { name:"Cifran 500",          brand:"Sun Pharma",  strengths:["500mg","750mg"],      type:"Tab",        category:"Antibiotic",    composition:"Ciprofloxacin" },
+  { name:"Taxim O 200",         brand:"Alkem",       strengths:["100mg","200mg"],      type:"Tab/DT",     category:"Antibiotic",    composition:"Cefixime 200mg" },
+  { name:"Zifi 200",            brand:"FDC",         strengths:["100mg","200mg","400mg"], type:"Tab",     category:"Antibiotic",    composition:"Cefixime" },
+  { name:"Staflex 200",         brand:"Ranbaxy",     strengths:["200mg"],              type:"Tab",        category:"Antibiotic",    composition:"Cefixime 200mg" },
+  { name:"Ceftas 200",          brand:"Alkem",       strengths:["100mg","200mg"],      type:"Tab",        category:"Antibiotic",    composition:"Cefixime" },
+  { name:"Monocef 1g",          brand:"Aristo",      strengths:["500mg","1g"],         type:"Inj",        category:"Antibiotic",    composition:"Ceftriaxone" },
+  { name:"Oflox 200",           brand:"Cipla",       strengths:["200mg","400mg"],      type:"Tab",        category:"Antibiotic",    composition:"Ofloxacin" },
+  { name:"Levomac 500",         brand:"Macleods",    strengths:["250mg","500mg","750mg"], type:"Tab",     category:"Antibiotic",    composition:"Levofloxacin" },
+  { name:"Levoflox 500",        brand:"Sun Pharma",  strengths:["500mg","750mg"],      type:"Tab",        category:"Antibiotic",    composition:"Levofloxacin" },
+  { name:"Doxycycline 100",     brand:"Generic",     strengths:["100mg"],              type:"Cap",        category:"Antibiotic",    composition:"Doxycycline 100mg" },
+  { name:"Doxt SL",             brand:"Sun Pharma",  strengths:["100mg"],              type:"Cap",        category:"Antibiotic",    composition:"Doxycycline 100mg" },
+  { name:"Bactrim DS",          brand:"Roche",       strengths:["Regular","DS"],       type:"Tab",        category:"Antibiotic",    composition:"Cotrimoxazole (TMP+SMX)" },
+  { name:"Septran DS",          brand:"GSK",         strengths:["DS"],                 type:"Tab",        category:"Antibiotic",    composition:"Cotrimoxazole DS" },
+  { name:"Flagyl 400",          brand:"Sanofi",      strengths:["200mg","400mg"],      type:"Tab",        category:"Antibiotic",    composition:"Metronidazole" },
+  { name:"Metrogyl 400",        brand:"J.B.Chem",    strengths:["200mg","400mg"],      type:"Tab",        category:"Antibiotic",    composition:"Metronidazole" },
+  { name:"Tiniba 500",          brand:"Cipla",       strengths:["500mg","1g"],         type:"Tab",        category:"Antibiotic",    composition:"Tinidazole" },
+  { name:"Fasigyn",             brand:"Pfizer",      strengths:["500mg","1g"],         type:"Tab",        category:"Antibiotic",    composition:"Tinidazole" },
+  { name:"Clavam 625",          brand:"Alkem",       strengths:["375mg","625mg"],      type:"Tab",        category:"Antibiotic",    composition:"Amoxicillin + Clavulanate" },
+  { name:"Erythrocin 500",      brand:"Abbott",      strengths:["250mg","500mg"],      type:"Tab",        category:"Antibiotic",    composition:"Erythromycin" },
+  { name:"Blumox CA",           brand:"Blue Cross",  strengths:["375mg","625mg"],      type:"Tab",        category:"Antibiotic",    composition:"Amoxicillin + Clavulanate" },
+  { name:"Klacid 500",          brand:"Abbott",      strengths:["250mg","500mg"],      type:"Tab",        category:"Antibiotic",    composition:"Clarithromycin" },
+
+  // ─── ANTIFUNGAL ───────────────────────────────────────────────
+  { name:"Flucos 150",          brand:"Cipla",       strengths:["50mg","150mg"],       type:"Cap",        category:"Antifungal",    composition:"Fluconazole" },
+  { name:"Zocon 150",           brand:"FDC",         strengths:["50mg","150mg","200mg"], type:"Cap",      category:"Antifungal",    composition:"Fluconazole" },
+  { name:"Sporanox 100",        brand:"J&J",         strengths:["100mg"],              type:"Cap",        category:"Antifungal",    composition:"Itraconazole" },
+  { name:"Canditral 100",       brand:"Glenmark",    strengths:["100mg","200mg"],      type:"Cap",        category:"Antifungal",    composition:"Itraconazole" },
+  { name:"Terbicip 250",        brand:"Cipla",       strengths:["250mg"],              type:"Tab",        category:"Antifungal",    composition:"Terbinafine" },
+  { name:"Lamisil 250",         brand:"Novartis",    strengths:["250mg"],              type:"Tab",        category:"Antifungal",    composition:"Terbinafine" },
+  { name:"Surfaz SN Cream",     brand:"FDC",         strengths:["Regular"],            type:"Cream",      category:"Antifungal",    composition:"Clotrimazole + Neomycin" },
+  { name:"Clotrimazole Cream",  brand:"Generic",     strengths:["1%","2%"],            type:"Cream",      category:"Antifungal",    composition:"Clotrimazole" },
+  { name:"Candid B Cream",      brand:"Glenmark",    strengths:["Regular"],            type:"Cream",      category:"Antifungal",    composition:"Clotrimazole + Beclomethasone" },
+  { name:"Ketomac Cream",       brand:"Alkem",       strengths:["2%"],                 type:"Cream/Shampoo",category:"Antifungal", composition:"Ketoconazole 2%" },
+  { name:"Nizral Cream",        brand:"J&J",         strengths:["2%"],                 type:"Cream/Shampoo",category:"Antifungal", composition:"Ketoconazole 2%" },
+  { name:"Mycostat",            brand:"Ranbaxy",     strengths:["100000IU"],           type:"Tab",        category:"Antifungal",    composition:"Nystatin" },
+
+  // ─── GI / STOMACH ─────────────────────────────────────────────
+  { name:"Omez 20",             brand:"Dr Reddy's",  strengths:["10mg","20mg","40mg"], type:"Cap",        category:"GI/Acidity",    composition:"Omeprazole" },
+  { name:"Omeprazole 20",       brand:"Generic",     strengths:["20mg","40mg"],        type:"Cap",        category:"GI/Acidity",    composition:"Omeprazole" },
+  { name:"Pan 40",              brand:"Alkem",       strengths:["20mg","40mg"],        type:"Tab",        category:"GI/Acidity",    composition:"Pantoprazole" },
+  { name:"Pantop 40",           brand:"Aristo",      strengths:["20mg","40mg"],        type:"Tab",        category:"GI/Acidity",    composition:"Pantoprazole" },
+  { name:"Rablet 20",           brand:"Lupin",       strengths:["10mg","20mg"],        type:"Tab",        category:"GI/Acidity",    composition:"Rabeprazole" },
+  { name:"Razo 20",             brand:"Dr Reddy's",  strengths:["10mg","20mg"],        type:"Tab",        category:"GI/Acidity",    composition:"Rabeprazole" },
+  { name:"Nexpro 40",           brand:"Torrent",     strengths:["20mg","40mg"],        type:"Cap",        category:"GI/Acidity",    composition:"Esomeprazole" },
+  { name:"Nexium 40",           brand:"AstraZeneca", strengths:["20mg","40mg"],        type:"Cap",        category:"GI/Acidity",    composition:"Esomeprazole" },
+  { name:"Gelusil MPS",         brand:"Pfizer",      strengths:["Regular","Forte"],    type:"Tab/Syp",    category:"GI/Acidity",    composition:"Aluminium + Magnesium + Simethicone" },
+  { name:"Digene Gel",          brand:"Abbott",      strengths:["Regular","Forte"],    type:"Tab/Gel/Syp",category:"GI/Acidity",    composition:"Aluminium + Magnesium + Simethicone" },
+  { name:"Rantac 150",          brand:"J.B.Chem",    strengths:["150mg","300mg"],      type:"Tab",        category:"GI/Acidity",    composition:"Ranitidine" },
+  { name:"Pepcid 20",           brand:"J&J",         strengths:["20mg","40mg"],        type:"Tab",        category:"GI/Acidity",    composition:"Famotidine" },
+  { name:"Domcet 10",           brand:"Cipla",       strengths:["10mg"],               type:"Tab/Syp",    category:"GI/Nausea",     composition:"Domperidone" },
+  { name:"Domstal 10",          brand:"Torrent",     strengths:["10mg"],               type:"Tab/Syp",    category:"GI/Nausea",     composition:"Domperidone" },
+  { name:"Perinorm",            brand:"Ipca",        strengths:["5mg","10mg"],         type:"Tab/Inj",    category:"GI/Nausea",     composition:"Metoclopramide" },
+  { name:"Emeset 4",            brand:"Cipla",       strengths:["4mg","8mg"],          type:"Tab/Syp/Inj",category:"GI/Nausea",     composition:"Ondansetron" },
+  { name:"Zofer 4",             brand:"FDC",         strengths:["4mg","8mg"],          type:"Tab/Syp",    category:"GI/Nausea",     composition:"Ondansetron" },
+  { name:"Cyclopam",            brand:"Indoco",      strengths:["Regular"],            type:"Tab/Syp/Inj",category:"GI/Spasm",      composition:"Dicyclomine + Paracetamol" },
+  { name:"Meftal Spas",         brand:"Blue Cross",  strengths:["Regular"],            type:"Tab",        category:"GI/Spasm",      composition:"Mefenamic Acid + Dicyclomine" },
+  { name:"Buscopan",            brand:"Boehringer",  strengths:["10mg"],               type:"Tab/Inj",    category:"GI/Spasm",      composition:"Hyoscine Butylbromide" },
+  { name:"ORS Sachet",          brand:"WHO Formula", strengths:["1 sachet / 200mL"],   type:"Sachet",     category:"GI/Diarrhoea",  composition:"ORS — WHO Formula" },
+  { name:"Electral Sachet",     brand:"FDC",         strengths:["Regular"],            type:"Sachet",     category:"GI/Diarrhoea",  composition:"ORS Electrolytes" },
+  { name:"Imodium",             brand:"J&J",         strengths:["2mg"],                type:"Cap",        category:"GI/Diarrhoea",  composition:"Loperamide 2mg" },
+  { name:"Norflox TZ",          brand:"Cipla",       strengths:["Regular"],            type:"Tab",        category:"GI/Diarrhoea",  composition:"Norfloxacin + Tinidazole" },
+  { name:"Furoxone",            brand:"Roberts",     strengths:["100mg"],              type:"Tab",        category:"GI/Diarrhoea",  composition:"Furazolidone" },
+  { name:"Econorm Sachet",      brand:"Sun Pharma",  strengths:["Regular"],            type:"Sachet",     category:"GI/Probiotic",  composition:"Saccharomyces boulardii" },
+  { name:"Vizylac",             brand:"Unique",      strengths:["Regular"],            type:"Cap",        category:"GI/Probiotic",  composition:"Lactobacillus" },
+  { name:"Duphalac Syrup",      brand:"Abbott",      strengths:["Regular"],            type:"Syp",        category:"GI/Constipation",composition:"Lactulose" },
+  { name:"Cremaffin Syrup",     brand:"Abbott",      strengths:["Regular","Plus"],     type:"Syp",        category:"GI/Constipation",composition:"Liquid Paraffin + Milk of Magnesia" },
+  { name:"Isabgol",             brand:"Dabur/GSK",   strengths:["1 tsp"],              type:"Powder",     category:"GI/Constipation",composition:"Psyllium Husk" },
+  { name:"Sucrafil Syrup",      brand:"FDC",         strengths:["1g/5mL"],             type:"Syp",        category:"GI/Ulcer",      composition:"Sucralfate" },
+  { name:"Ulsanic",             brand:"Ranbaxy",     strengths:["1g"],                 type:"Tab/Syp",    category:"GI/Ulcer",      composition:"Sucralfate" },
+  { name:"Revange MPS",         brand:"Elder",       strengths:["Regular"],            type:"Syp",        category:"GI/Acidity",    composition:"Antacid Combination" },
+
+  // ─── BLOOD PRESSURE / CARDIAC ─────────────────────────────────
+  { name:"Amlodac 5",           brand:"Zydus",       strengths:["2.5mg","5mg","10mg"], type:"Tab",        category:"BP",            composition:"Amlodipine" },
+  { name:"Amlopres 5",          brand:"Cipla",       strengths:["2.5mg","5mg","10mg"], type:"Tab",        category:"BP",            composition:"Amlodipine" },
+  { name:"Tenormin 50",         brand:"AstraZeneca", strengths:["25mg","50mg","100mg"],type:"Tab",        category:"BP",            composition:"Atenolol" },
+  { name:"Metolar 25",          brand:"Cipla",       strengths:["25mg","50mg"],        type:"Tab",        category:"BP",            composition:"Metoprolol" },
+  { name:"Losartan 50",         brand:"Generic",     strengths:["25mg","50mg","100mg"],type:"Tab",        category:"BP",            composition:"Losartan" },
+  { name:"Losacar 50",          brand:"Cadila",      strengths:["25mg","50mg","100mg"],type:"Tab",        category:"BP",            composition:"Losartan" },
+  { name:"Cardace 5",           brand:"Sanofi",      strengths:["1.25mg","2.5mg","5mg","10mg"],type:"Cap",category:"BP",           composition:"Ramipril" },
+  { name:"Ramipril 5",          brand:"Generic",     strengths:["2.5mg","5mg","10mg"],type:"Cap",        category:"BP",            composition:"Ramipril" },
+  { name:"Telvas 40",           brand:"Sun Pharma",  strengths:["20mg","40mg","80mg"], type:"Tab",        category:"BP",            composition:"Telmisartan" },
+  { name:"Telmikind 40",        brand:"Mankind",     strengths:["40mg","80mg"],        type:"Tab",        category:"BP",            composition:"Telmisartan" },
+  { name:"Lasix 40",            brand:"Sanofi",      strengths:["20mg","40mg","80mg"], type:"Tab/Inj",    category:"BP/Oedema",     composition:"Furosemide" },
+  { name:"Aldactone 25",        brand:"RPG",         strengths:["25mg","50mg","100mg"],type:"Tab",        category:"BP/Oedema",     composition:"Spironolactone" },
+  { name:"Atorva 10",           brand:"Cadila",      strengths:["10mg","20mg","40mg","80mg"],type:"Tab",  category:"Cholesterol",   composition:"Atorvastatin" },
+  { name:"Lipitor 20",          brand:"Pfizer",      strengths:["10mg","20mg","40mg"], type:"Tab",        category:"Cholesterol",   composition:"Atorvastatin" },
+  { name:"Rozavel 10",          brand:"Sun Pharma",  strengths:["5mg","10mg","20mg","40mg"],type:"Tab",   category:"Cholesterol",   composition:"Rosuvastatin" },
+  { name:"Clopivas 75",         brand:"Cipla",       strengths:["75mg","150mg"],       type:"Tab",        category:"Cardiac",       composition:"Clopidogrel" },
+  { name:"Plavix 75",           brand:"Sanofi",      strengths:["75mg"],               type:"Tab",        category:"Cardiac",       composition:"Clopidogrel" },
+  { name:"Ecosprin 75",         brand:"USV",         strengths:["75mg","150mg","325mg"],type:"Tab",       category:"Cardiac",       composition:"Aspirin" },
+  { name:"Cardace H",           brand:"Sanofi",      strengths:["Regular"],            type:"Tab",        category:"BP",            composition:"Ramipril + Hydrochlorothiazide" },
+  { name:"Nifedac 10",          brand:"Torrent",     strengths:["5mg","10mg","20mg"],  type:"Cap",        category:"BP",            composition:"Nifedipine" },
+  { name:"Sorbitrate 5",        brand:"Abbott",      strengths:["5mg","10mg"],         type:"Tab",        category:"Cardiac",       composition:"Isosorbide Dinitrate" },
+  { name:"Concor 5",            brand:"Merck",       strengths:["2.5mg","5mg","10mg"], type:"Tab",        category:"BP",            composition:"Bisoprolol" },
+
+  // ─── DIABETES ─────────────────────────────────────────────────
+  { name:"Glycomet 500",        brand:"USV",         strengths:["250mg","500mg","850mg","1000mg"],type:"Tab",category:"Diabetes",  composition:"Metformin" },
+  { name:"Glucophage 500",      brand:"Merck",       strengths:["500mg","850mg","1000mg"],type:"Tab",     category:"Diabetes",      composition:"Metformin" },
+  { name:"Glycomet GP",         brand:"USV",         strengths:["1mg","2mg"],          type:"Tab",        category:"Diabetes",      composition:"Glimepiride + Metformin" },
+  { name:"Amaryl 1",            brand:"Sanofi",      strengths:["1mg","2mg","3mg","4mg"],type:"Tab",      category:"Diabetes",      composition:"Glimepiride" },
+  { name:"Glucoryl 5",          brand:"Sun Pharma",  strengths:["2.5mg","5mg"],        type:"Tab",        category:"Diabetes",      composition:"Glibenclamide" },
+  { name:"Diamicron 80",        brand:"Servier",     strengths:["40mg","80mg","30mg MR"],type:"Tab",      category:"Diabetes",      composition:"Gliclazide" },
+  { name:"Gluconorm PG",        brand:"Ranbaxy",     strengths:["Regular"],            type:"Tab",        category:"Diabetes",      composition:"Pioglitazone + Glimepiride + Metformin" },
+  { name:"Januvia 100",         brand:"MSD",         strengths:["25mg","50mg","100mg"],type:"Tab",        category:"Diabetes",      composition:"Sitagliptin" },
+  { name:"Forxiga 10",          brand:"AstraZeneca", strengths:["5mg","10mg"],         type:"Tab",        category:"Diabetes",      composition:"Dapagliflozin" },
+  { name:"Jardiance 10",        brand:"Boehringer",  strengths:["10mg","25mg"],        type:"Tab",        category:"Diabetes",      composition:"Empagliflozin" },
+  { name:"Human Mixtard 30/70", brand:"Novo Nordisk",strengths:["40IU/mL","100IU/mL"],type:"Inj",        category:"Diabetes",      composition:"Biphasic Insulin" },
+  { name:"Lantus",              brand:"Sanofi",      strengths:["100IU/mL"],           type:"Inj",        category:"Diabetes",      composition:"Insulin Glargine" },
+  { name:"Novomix 30",          brand:"Novo Nordisk",strengths:["100IU/mL"],           type:"Inj",        category:"Diabetes",      composition:"Biphasic Insulin Aspart" },
+  { name:"Volix 0.3",           brand:"Biocon",      strengths:["0.2mg","0.3mg"],      type:"Tab",        category:"Diabetes",      composition:"Voglibose" },
+
+  // ─── THYROID ──────────────────────────────────────────────────
+  { name:"Thyronorm 50",        brand:"Abbott",      strengths:["12.5mcg","25mcg","50mcg","75mcg","100mcg","125mcg"],type:"Tab",category:"Thyroid",composition:"Levothyroxine" },
+  { name:"Eltroxin 50",         brand:"GSK",         strengths:["25mcg","50mcg","100mcg"],type:"Tab",     category:"Thyroid",       composition:"Levothyroxine" },
+  { name:"Neomercazole 5",      brand:"Roche",       strengths:["5mg","10mg","20mg"],  type:"Tab",        category:"Thyroid",       composition:"Carbimazole" },
+  { name:"PTU 50",              brand:"Generic",     strengths:["50mg","100mg"],       type:"Tab",        category:"Thyroid",       composition:"Propylthiouracil" },
+
+  // ─── ASTHMA / RESPIRATORY ─────────────────────────────────────
+  { name:"Asthalin Inhaler",    brand:"Cipla",       strengths:["100mcg"],             type:"Inhaler",    category:"Asthma",        composition:"Salbutamol 100mcg/dose" },
+  { name:"Ventolin Inhaler",    brand:"GSK",         strengths:["100mcg"],             type:"Inhaler",    category:"Asthma",        composition:"Salbutamol 100mcg/dose" },
+  { name:"Budecort 200",        brand:"Cipla",       strengths:["100mcg","200mcg","400mcg"],type:"Inhaler",category:"Asthma",       composition:"Budesonide" },
+  { name:"Foracort 200",        brand:"Cipla",       strengths:["100mcg","200mcg","400mcg"],type:"Inhaler",category:"Asthma",       composition:"Budesonide + Formoterol" },
+  { name:"Seroflo 250",         brand:"Cipla",       strengths:["125","250","500"],    type:"Inhaler/Rotacap",category:"Asthma",    composition:"Salmeterol + Fluticasone" },
+  { name:"Montek LC",           brand:"Sun Pharma",  strengths:["Regular"],            type:"Tab",        category:"Asthma/Allergy",composition:"Montelukast + Levocetirizine" },
+  { name:"Montair LC",          brand:"Cipla",       strengths:["Regular"],            type:"Tab",        category:"Asthma/Allergy",composition:"Montelukast + Levocetirizine" },
+  { name:"Montair 10",          brand:"Cipla",       strengths:["4mg","5mg","10mg"],   type:"Tab/Chew",   category:"Asthma",        composition:"Montelukast" },
+  { name:"Singulair 10",        brand:"MSD",         strengths:["4mg","5mg","10mg"],   type:"Tab/Chew",   category:"Asthma",        composition:"Montelukast" },
+  { name:"Deriphyllin",         brand:"Franco-Indian",strengths:["Regular","Retard"],  type:"Tab",        category:"Asthma",        composition:"Theophylline + Etofylline" },
+  { name:"Tiova Rotacap",       brand:"Cipla",       strengths:["9mcg"],               type:"Rotacap",    category:"COPD",          composition:"Tiotropium" },
+  { name:"Spiriva",             brand:"Boehringer",  strengths:["9mcg","18mcg"],       type:"Inhaler",    category:"COPD",          composition:"Tiotropium" },
+
+  // ─── VITAMINS & SUPPLEMENTS ───────────────────────────────────
+  { name:"Becosules",           brand:"Pfizer",      strengths:["Regular"],            type:"Cap",        category:"Vitamins",      composition:"Vitamin B Complex + C" },
+  { name:"Neurobion Forte",     brand:"P&G/Merck",   strengths:["Regular"],            type:"Tab/Inj",    category:"Vitamins",      composition:"Vit B1 + B6 + B12" },
+  { name:"Methylcobal 500",     brand:"Elder",       strengths:["500mcg","1500mcg"],   type:"Tab/Inj",    category:"Vitamins",      composition:"Methylcobalamin B12" },
+  { name:"Mecobal 500",         brand:"Sun Pharma",  strengths:["500mcg"],             type:"Tab",        category:"Vitamins",      composition:"Methylcobalamin" },
+  { name:"Limcee 500",          brand:"Abbott",      strengths:["500mg","1000mg"],     type:"Tab (Chew)", category:"Vitamins",      composition:"Vitamin C" },
+  { name:"Celin 500",           brand:"GSK",         strengths:["500mg"],              type:"Tab",        category:"Vitamins",      composition:"Vitamin C 500mg" },
+  { name:"D-Rise 60K",          brand:"USV",         strengths:["1000IU","60000IU"],   type:"Cap/Sachet", category:"Vitamins",      composition:"Vitamin D3" },
+  { name:"Calcirol Sachet",     brand:"Cadila",      strengths:["60000IU"],            type:"Sachet",     category:"Vitamins",      composition:"Vitamin D3 60000IU" },
+  { name:"Shelcal 500",         brand:"Elder",       strengths:["500mg"],              type:"Tab",        category:"Vitamins",      composition:"Calcium + Vit D3" },
+  { name:"Gemcal",              brand:"Sun Pharma",  strengths:["Regular"],            type:"Cap",        category:"Vitamins",      composition:"Calcium + Vit D3 + Vit K2" },
+  { name:"Folvite",             brand:"Pfizer",      strengths:["5mg"],                type:"Tab",        category:"Vitamins",      composition:"Folic Acid 5mg" },
+  { name:"Dexorange Syrup",     brand:"Franco-Indian",strengths:["Regular"],           type:"Syp",        category:"Iron/Anaemia",  composition:"Iron + Folic Acid + Vit B12" },
+  { name:"Autrin",              brand:"Pfizer",      strengths:["Regular"],            type:"Cap",        category:"Iron/Anaemia",  composition:"Ferrous Fumarate + Folic Acid" },
+  { name:"Ferium XT",           brand:"Sun Pharma",  strengths:["Regular"],            type:"Tab",        category:"Iron/Anaemia",  composition:"Ferrous Ascorbate + Folic Acid" },
+  { name:"Orofer XT",           brand:"Emcure",      strengths:["Regular"],            type:"Tab",        category:"Iron/Anaemia",  composition:"Ferrous Ascorbate + Folic Acid" },
+  { name:"Torvate 500",         brand:"Cipla",       strengths:["500mg"],              type:"Tab",        category:"Vitamins",      composition:"Valproate 500mg" },
+  { name:"Zincovit",            brand:"Apex",        strengths:["Regular"],            type:"Tab/Syp",    category:"Vitamins",      composition:"Zinc + Multivitamin" },
+  { name:"Supradyn",            brand:"Bayer",       strengths:["Regular"],            type:"Tab",       category:"Vitamins",      composition:"Multivitamin + Multimineral" },
+
+  // ─── STEROIDS / ANTI-INFLAMMATORY ─────────────────────────────
+  { name:"Omnacortil 5",        brand:"Macleods",    strengths:["5mg","10mg","20mg","40mg"],type:"Tab",   category:"Steroid",       composition:"Prednisolone" },
+  { name:"Wysolone 10",         brand:"Pfizer",      strengths:["5mg","10mg","20mg"],  type:"Tab",        category:"Steroid",       composition:"Prednisolone" },
+  { name:"Decdan 0.5",          brand:"Alkem",       strengths:["0.5mg","4mg","8mg"],  type:"Tab/Inj",    category:"Steroid",       composition:"Dexamethasone" },
+  { name:"Medrol 4",            brand:"Pfizer",      strengths:["4mg","8mg","16mg","32mg"],type:"Tab",    category:"Steroid",       composition:"Methylprednisolone" },
+  { name:"Betnesol",            brand:"GSK",         strengths:["0.5mg","1mg"],        type:"Tab",        category:"Steroid",       composition:"Betamethasone" },
+  { name:"Betnovate Cream",     brand:"GSK",         strengths:["0.1%"],               type:"Cream",      category:"Topical Steroid",composition:"Betamethasone 0.1%" },
+  { name:"Kenacort 10",         brand:"Sanofi",      strengths:["0.1%","10mg/mL"],     type:"Cream/Inj",  category:"Steroid",       composition:"Triamcinolone" },
+
+  // ─── SKIN / DERMATOLOGY ───────────────────────────────────────
+  { name:"Bactroban Cream",     brand:"GSK",         strengths:["2%"],                 type:"Cream",      category:"Skin",          composition:"Mupirocin 2%" },
+  { name:"Fucibet Cream",       brand:"Leo",         strengths:["Regular"],            type:"Cream",      category:"Skin",          composition:"Fusidic Acid + Betamethasone" },
+  { name:"Soframycin Cream",    brand:"Sanofi",      strengths:["Regular"],            type:"Cream",      category:"Skin",          composition:"Framycetin" },
+  { name:"Neosporin Cream",     brand:"J&J",         strengths:["Regular"],            type:"Cream",      category:"Skin",          composition:"Neomycin + Bacitracin + Polymyxin" },
+  { name:"Scaboma Lotion",      brand:"Hegde & Hegde",strengths:["1%","5%"],           type:"Lotion",     category:"Skin",          composition:"Permethrin" },
+  { name:"Kwellada Lotion",     brand:"Stiefel",     strengths:["5%"],                 type:"Lotion",     category:"Skin",          composition:"Permethrin 5%" },
+  { name:"Silver X Cream",      brand:"Sun Pharma",  strengths:["1%"],                 type:"Cream",      category:"Skin/Burns",    composition:"Silver Sulfadiazine 1%" },
+  { name:"Betadine Solution",   brand:"Win-Medicare",strengths:["5%","7.5%","10%"],    type:"Solution",   category:"Skin/Wound",    composition:"Povidone Iodine" },
+  { name:"Boroline Cream",      brand:"GD Pharma",   strengths:["Regular"],            type:"Cream",      category:"Skin",          composition:"Boric Acid + Zinc Oxide" },
+  { name:"Calamine Lotion",     brand:"Generic",     strengths:["Regular"],            type:"Lotion",     category:"Skin/Allergy",  composition:"Calamine + Zinc Oxide" },
+  { name:"Lacticare Lotion",    brand:"Stiefel",     strengths:["Regular"],            type:"Lotion",     category:"Skin",          composition:"Lactic Acid + Glycerine" },
+  { name:"T-Bact Cream",        brand:"GSK",         strengths:["2%"],                 type:"Cream",      category:"Skin",          composition:"Mupirocin 2%" },
+  { name:"Candid Cream",        brand:"Glenmark",    strengths:["1%"],                 type:"Cream",      category:"Skin/Antifungal",composition:"Clotrimazole 1%" },
+  { name:"Quadriderm Cream",    brand:"Fulford",     strengths:["Regular"],            type:"Cream",      category:"Skin",          composition:"Betamethasone + Neomycin + Clotrimazole" },
+  { name:"Acne Aid Gel",        brand:"Stiefel",     strengths:["Regular"],            type:"Gel",        category:"Skin/Acne",     composition:"Benzoyl Peroxide" },
+
+  // ─── EYE / EAR DROPS ──────────────────────────────────────────
+  { name:"Ciplox Eye Drops",    brand:"Cipla",       strengths:["0.3%"],               type:"Eye Drops",  category:"Eye",           composition:"Ciprofloxacin 0.3%" },
+  { name:"Moxicip Eye Drops",   brand:"Cipla",       strengths:["0.5%"],               type:"Eye Drops",  category:"Eye",           composition:"Moxifloxacin 0.5%" },
+  { name:"Genteal Eye Drops",   brand:"Novartis",    strengths:["Regular"],            type:"Eye Drops",  category:"Eye/Dryness",   composition:"Hydroxypropyl Methylcellulose" },
+  { name:"Refresh Tears",       brand:"Allergan",    strengths:["Regular"],            type:"Eye Drops",  category:"Eye/Dryness",   composition:"Carboxymethylcellulose" },
+  { name:"Systane Eye Drops",   brand:"Alcon",       strengths:["Regular"],            type:"Eye Drops",  category:"Eye/Dryness",   composition:"Polyethylene Glycol" },
+  { name:"Timolol Eye Drops",   brand:"Generic",     strengths:["0.25%","0.5%"],       type:"Eye Drops",  category:"Glaucoma",      composition:"Timolol Maleate" },
+  { name:"Latanoprost 0.005%",  brand:"Generic",     strengths:["0.005%"],             type:"Eye Drops",  category:"Glaucoma",      composition:"Latanoprost" },
+  { name:"Tobacip Eye Drops",   brand:"Cipla",       strengths:["0.3%"],               type:"Eye Drops",  category:"Eye",           composition:"Tobramycin 0.3%" },
+  { name:"Sofradex Ear Drops",  brand:"Sanofi",      strengths:["Regular"],            type:"Ear Drops",  category:"Ear",           composition:"Framycetin + Dexamethasone" },
+  { name:"Otosporin Ear Drops", brand:"GSK",         strengths:["Regular"],            type:"Ear Drops",  category:"Ear",           composition:"Polymyxin + Neomycin + HC" },
+  { name:"Waxsol Ear Drops",    brand:"Dendrite",    strengths:["Regular"],            type:"Ear Drops",  category:"Ear/Wax",       composition:"Docusate Sodium" },
+
+  // ─── NEUROLOGY / PSYCHIATRY ───────────────────────────────────
+  { name:"Valium 5",            brand:"Roche",       strengths:["2mg","5mg","10mg"],   type:"Tab",        category:"Neuro/Anxiety", composition:"Diazepam" },
+  { name:"Restyl 0.5",          brand:"Sun Pharma",  strengths:["0.25mg","0.5mg","1mg"],type:"Tab",       category:"Neuro/Anxiety", composition:"Alprazolam" },
+  { name:"Alprax 0.5",          brand:"Torrent",     strengths:["0.25mg","0.5mg","1mg"],type:"Tab",       category:"Neuro/Anxiety", composition:"Alprazolam" },
+  { name:"Rivotril 0.5",        brand:"Roche",       strengths:["0.25mg","0.5mg","1mg","2mg"],type:"Tab", category:"Epilepsy",      composition:"Clonazepam" },
+  { name:"Frisium 10",          brand:"Sanofi",      strengths:["10mg"],               type:"Tab",        category:"Epilepsy",      composition:"Clobazam" },
+  { name:"Epsolin 100",         brand:"Elder",       strengths:["50mg","100mg","300mg"],type:"Cap/Inj",   category:"Epilepsy",      composition:"Phenytoin" },
+  { name:"Tegretol 200",        brand:"Novartis",    strengths:["100mg","200mg","400mg"],type:"Tab",      category:"Epilepsy",      composition:"Carbamazepine" },
+  { name:"Valparin 200",        brand:"Torrent",     strengths:["200mg","500mg"],      type:"Tab/Syp",    category:"Epilepsy",      composition:"Sodium Valproate" },
+  { name:"Levipil 500",         brand:"Sun Pharma",  strengths:["250mg","500mg","750mg","1000mg"],type:"Tab",category:"Epilepsy",  composition:"Levetiracetam" },
+  { name:"Amitone 25",          brand:"Merck",       strengths:["10mg","25mg","50mg"], type:"Tab",        category:"Neuro/Psych",   composition:"Amitriptyline" },
+  { name:"Deptran 25",          brand:"Torrent",     strengths:["25mg","50mg","75mg"], type:"Cap",        category:"Neuro/Psych",   composition:"Doxepin" },
+  { name:"Prodep 20",           brand:"Sun Pharma",  strengths:["10mg","20mg","40mg"], type:"Cap",        category:"Neuro/Psych",   composition:"Fluoxetine" },
+  { name:"Serta 50",            brand:"Sun Pharma",  strengths:["25mg","50mg","100mg"],type:"Tab",        category:"Neuro/Psych",   composition:"Sertraline" },
+  { name:"Nexito 10",           brand:"Sun Pharma",  strengths:["5mg","10mg","20mg"],  type:"Tab",        category:"Neuro/Psych",   composition:"Escitalopram" },
+  { name:"Haloperidol 5",       brand:"Generic",     strengths:["0.5mg","1mg","5mg","10mg"],type:"Tab",   category:"Neuro/Psych",   composition:"Haloperidol" },
+  { name:"Sizopin 25",          brand:"Sun Pharma",  strengths:["25mg","100mg","200mg"],type:"Tab",       category:"Neuro/Psych",   composition:"Clozapine" },
+  { name:"Risdone 2",           brand:"Sun Pharma",  strengths:["0.5mg","1mg","2mg","4mg"],type:"Tab",    category:"Neuro/Psych",   composition:"Risperidone" },
+  { name:"Oleanz 5",            brand:"Sun Pharma",  strengths:["2.5mg","5mg","10mg"], type:"Tab",        category:"Neuro/Psych",   composition:"Olanzapine" },
+  { name:"Pregabalin 75",       brand:"Generic",     strengths:["50mg","75mg","150mg","300mg"],type:"Cap",category:"Neuro/Pain",   composition:"Pregabalin" },
+  { name:"Lyrica 75",           brand:"Pfizer",      strengths:["25mg","75mg","150mg","300mg"],type:"Cap",category:"Neuro/Pain",   composition:"Pregabalin" },
+  { name:"Gabapin 300",         brand:"Intas",       strengths:["100mg","300mg","400mg"],type:"Cap",      category:"Neuro/Pain",   composition:"Gabapentin" },
+
+  // ─── ANTIPARASITIC / WORM ─────────────────────────────────────
+  { name:"Zentel 400",          brand:"GSK",         strengths:["200mg","400mg"],      type:"Tab/Syp",    category:"Deworming",     composition:"Albendazole" },
+  { name:"Bandy Plus",          brand:"Mankind",     strengths:["Regular"],            type:"Tab",        category:"Deworming",     composition:"Albendazole + Ivermectin" },
+  { name:"Mebex 100",           brand:"Cipla",       strengths:["100mg"],              type:"Tab/Syp",    category:"Deworming",     composition:"Mebendazole" },
+  { name:"Vermox",              brand:"J&J",         strengths:["100mg","500mg"],      type:"Tab/Syp",    category:"Deworming",     composition:"Mebendazole" },
+  { name:"Scavista 12",         brand:"Macleods",    strengths:["3mg","6mg","12mg"],   type:"Tab",        category:"Parasitic",     composition:"Ivermectin" },
+  { name:"Ivermectol 12",       brand:"Sun Pharma",  strengths:["3mg","6mg","12mg"],   type:"Tab",        category:"Parasitic",     composition:"Ivermectin" },
+  { name:"Lariago DS",          brand:"Ipca",        strengths:["250mg","500mg"],      type:"Tab",        category:"Malaria",       composition:"Chloroquine" },
+  { name:"Falcigo 100",         brand:"Cipla",       strengths:["100mg","150mg"],      type:"Tab",        category:"Malaria",       composition:"Artesunate" },
+  { name:"Primaquine 7.5",      brand:"Ipca",        strengths:["2.5mg","7.5mg"],      type:"Tab",        category:"Malaria",       composition:"Primaquine" },
+  { name:"Nizonide 500",        brand:"Lupin",       strengths:["200mg","500mg"],      type:"Tab/Syp",    category:"Parasitic",     composition:"Nitazoxanide" },
+
+  // ─── ANTIVIRAL / HERPES ───────────────────────────────────────
+  { name:"Acivir 400",          brand:"Cipla",       strengths:["200mg","400mg","800mg"],type:"Tab/Cream",category:"Antiviral",     composition:"Acyclovir" },
+  { name:"Zovirax 400",         brand:"GSK",         strengths:["200mg","400mg","800mg"],type:"Tab/Cream",category:"Antiviral",     composition:"Acyclovir" },
+  { name:"Valcivir 500",        brand:"Cipla",       strengths:["500mg","1000mg"],     type:"Tab",        category:"Antiviral",     composition:"Valacyclovir" },
+  { name:"Valtrex 500",         brand:"GSK",         strengths:["500mg"],              type:"Tab",        category:"Antiviral",     composition:"Valacyclovir" },
+  { name:"Tamiflu 75",          brand:"Roche",       strengths:["30mg","45mg","75mg"], type:"Cap",        category:"Antiviral",     composition:"Oseltamivir" },
+
+  // ─── MUSCLE RELAXANTS ─────────────────────────────────────────
+  { name:"Myoril 8",            brand:"Torrent",     strengths:["4mg","8mg"],          type:"Tab",        category:"Muscle Relaxant",composition:"Thiocolchicoside" },
+  { name:"Thiocolchicoside 8",  brand:"Generic",     strengths:["4mg","8mg"],          type:"Tab/Inj",    category:"Muscle Relaxant",composition:"Thiocolchicoside" },
+  { name:"Flexon MR",           brand:"Alkem",       strengths:["Regular"],            type:"Tab",        category:"Muscle Relaxant",composition:"Ibuprofen + Paracetamol + Chlorzoxazone" },
+  { name:"Lorzone 250",         brand:"Watson",      strengths:["250mg","500mg"],      type:"Tab",        category:"Muscle Relaxant",composition:"Chlorzoxazone" },
+  { name:"Baclof 10",           brand:"Sun Pharma",  strengths:["10mg","25mg"],        type:"Tab",        category:"Muscle Relaxant",composition:"Baclofen" },
+
+  // ─── WOUND CARE / TOPICALS ────────────────────────────────────
+  { name:"Savlon Solution",     brand:"ICI",         strengths:["Regular","Diluted"],  type:"Solution",   category:"Wound Care",    composition:"Chlorhexidine + Cetrimide" },
+  { name:"Dettol Solution",     brand:"Reckitt",     strengths:["Regular"],            type:"Solution",   category:"Wound Care",    composition:"Chloroxylenol" },
+  { name:"Burnol Cream",        brand:"Abbot",       strengths:["Regular"],            type:"Cream",      category:"Burns",         composition:"Benzalkonium Chloride" },
+  { name:"Lacto Calamine",      brand:"Piramal",     strengths:["Regular"],            type:"Lotion",     category:"Skin",          composition:"Calamine + Zinc Oxide + Kaolin" },
+  { name:"Eczema Cream",        brand:"Himalaya",    strengths:["Regular"],            type:"Cream",      category:"Skin",          composition:"Herbal Skin Cream" },
+  { name:"Himax Ointment",      brand:"Elder",       strengths:["Regular"],            type:"Ointment",   category:"Wound Care",    composition:"Chlorhexidine + Framycetin" },
+
+  // ─── MATERNAL / PREGNANCY ─────────────────────────────────────
+  { name:"Susten 200",          brand:"Sun Pharma",  strengths:["100mg","200mg","400mg"],type:"Cap",      category:"Pregnancy",     composition:"Progesterone" },
+  { name:"Duphaston 10",        brand:"Abbott",      strengths:["10mg"],               type:"Tab",        category:"Pregnancy",     composition:"Dydrogesterone" },
+  { name:"Duvadilan",           brand:"Abbott",      strengths:["10mg","40mg"],        type:"Tab/Inj",    category:"Pregnancy",     composition:"Isoxsuprine" },
+  { name:"Methergin 0.125",     brand:"Novartis",    strengths:["0.125mg","0.2mg"],    type:"Tab/Inj",    category:"Obstetric",     composition:"Methylergometrine" },
+  { name:"Primolut N",          brand:"Bayer",       strengths:["5mg"],                type:"Tab",        category:"Gynaecology",   composition:"Norethisterone" },
+  { name:"Gestin 5",            brand:"Sun Pharma",  strengths:["5mg"],                type:"Tab",        category:"Gynaecology",   composition:"Norethisterone" },
+
+  // ─── PAEDIATRIC / CHILD ───────────────────────────────────────
+  { name:"Febrex Plus Drops",   brand:"Indoco",      strengths:["Regular Drops"],      type:"Drops",      category:"Paediatric",    composition:"Paracetamol + Phenylephrine + Chlorpheniramine Drops" },
+  { name:"Crocin Drops",        brand:"GSK",         strengths:["100mg/mL"],           type:"Drops",      category:"Paediatric",    composition:"Paracetamol Drops" },
+  { name:"Otrivin Paediatric",  brand:"Novartis",    strengths:["0.05%"],              type:"Nasal Drops",category:"Paediatric",    composition:"Xylometazoline 0.05%" },
+  { name:"Sinarest Drops",      brand:"Centaur",     strengths:["Regular Drops"],      type:"Drops",      category:"Paediatric",    composition:"Paediatric Cold Drops" },
+  { name:"Zinocef Syrup",       brand:"GSK",         strengths:["125mg/5mL"],          type:"Syp",        category:"Paediatric",    composition:"Cefuroxime Syrup" },
+  { name:"Taxim O Drops",       brand:"Alkem",       strengths:["25mg/mL"],            type:"Drops",      category:"Paediatric",    composition:"Cefixime Oral Drops" },
+  { name:"Zincovit Syrup",      brand:"Apex",        strengths:["Regular"],            type:"Syp",        category:"Paediatric",    composition:"Zinc + Multivitamin Syrup" },
+  { name:"Pedialyte",           brand:"Abbott",      strengths:["Regular"],            type:"Sachet/Syp",category:"Paediatric",    composition:"ORS for Children" },
+
+  // ─── URINARY TRACT ────────────────────────────────────────────
+  { name:"Norflox 400",         brand:"Cipla",       strengths:["400mg"],              type:"Tab",        category:"UTI",           composition:"Norfloxacin 400mg" },
+  { name:"Negram 500",          brand:"Sanofi",      strengths:["500mg"],              type:"Tab",        category:"UTI",           composition:"Nalidixic Acid" },
+  { name:"Macrobid 100",        brand:"Procter",     strengths:["50mg","100mg"],       type:"Cap",        category:"UTI",           composition:"Nitrofurantoin" },
+  { name:"Cystitis Sachet",     brand:"Various",     strengths:["Regular"],            type:"Sachet",     category:"UTI",           composition:"Potassium Citrate Sachet" },
+  { name:"Urimax 0.4",          brand:"Cipla",       strengths:["0.4mg"],              type:"Cap",        category:"Prostate/UTI",  composition:"Tamsulosin 0.4mg" },
+  { name:"Xatral 10",           brand:"Sanofi",      strengths:["2.5mg","10mg"],       type:"Tab",        category:"Prostate",      composition:"Alfuzosin" },
+  { name:"Finasteride 5",       brand:"Generic",     strengths:["1mg","5mg"],          type:"Tab",        category:"Prostate",      composition:"Finasteride" },
+  { name:"Volini Gel",          brand:"Sun Pharma",  strengths:["1%"],                 type:"Gel",        category:"Pain/Topical",  composition:"Diclofenac + Methyl Salicylate" },
+  { name:"Moov Cream",          brand:"Reckitt",     strengths:["Regular"],            type:"Cream",      category:"Pain/Topical",  composition:"Levomenthol + Methyl Salicylate" },
+
+  // ─── MISCELLANEOUS ─────────────────────────────────────────────
+  { name:"Liv 52",              brand:"Himalaya",    strengths:["Regular"],            type:"Tab/Syp",    category:"Liver",         composition:"Herbal Liver Protectant" },
+  { name:"Silymarin 140",       brand:"Micro Labs",  strengths:["70mg","140mg"],       type:"Tab",        category:"Liver",         composition:"Silymarin" },
+  { name:"Udiliv 300",          brand:"Abbott",      strengths:["150mg","300mg"],      type:"Tab",        category:"Liver",         composition:"Ursodeoxycholic Acid" },
+  { name:"Rabekind DSR",        brand:"Mankind",     strengths:["Regular"],            type:"Cap",        category:"GI/Acidity",    composition:"Rabeprazole + Domperidone SR" },
+  { name:"Pantocid DSR",        brand:"Sun Pharma",  strengths:["Regular"],            type:"Cap",        category:"GI/Acidity",    composition:"Pantoprazole + Domperidone SR" },
+  { name:"Nise Gel",            brand:"Dr Reddy's",  strengths:["1%"],                 type:"Gel",        category:"Pain/Topical",  composition:"Nimesulide 1% Gel" },
+  { name:"Voveran Gel",         brand:"Novartis",    strengths:["1%"],                 type:"Gel",        category:"Pain/Topical",  composition:"Diclofenac Diethylamine 1%" },
+  { name:"Tetanus Toxoid",      brand:"Serum Inst.", strengths:["0.5mL"],              type:"Inj",        category:"Vaccine",       composition:"Tetanus Toxoid 0.5mL" },
+  { name:"Normal Saline 500mL", brand:"Baxter",      strengths:["0.9% 500mL","0.9% 100mL"],type:"IV Fluid",category:"IV Fluids",  composition:"Sodium Chloride 0.9%" },
+  { name:"RL 500mL",            brand:"Baxter",      strengths:["500mL"],              type:"IV Fluid",   category:"IV Fluids",     composition:"Ringer Lactate" },
+  { name:"DNS 500mL",           brand:"Baxter",      strengths:["500mL"],              type:"IV Fluid",   category:"IV Fluids",     composition:"Dextrose Normal Saline" },
+  { name:"Dextrose 5% 500mL",   brand:"Baxter",      strengths:["5% 500mL","10% 500mL"],type:"IV Fluid",  category:"IV Fluids",    composition:"Dextrose" },
+  { name:"Mannitol 20%",        brand:"Baxter",      strengths:["20% 100mL","20% 500mL"],type:"IV Fluid", category:"IV Fluids",    composition:"Mannitol" },
 ];
 
 const FREQUENCIES = [
@@ -546,35 +702,52 @@ function StaffLogin({ onLogin, onSuccess }) {
 }
 
 /* ─── PRESCRIPTION BUILDER ───────────────────────────────────────────────── */
+// ═══════════════════════════════════════════════════════════════
+// INSTRUCTIONS:
+// After replacing the MEDICINES array with indian_brands_medicines.js,
+// now find the PrescriptionBuilder function in App.jsx
+// Press Ctrl+F and search for: function PrescriptionBuilder(
+// Select from that line to the closing } of the function
+// Delete it and paste this entire replacement below
+// ═══════════════════════════════════════════════════════════════
+
 function PrescriptionBuilder({ value, onChange }) {
-  const [search, setSearch]       = useState("");
+  const [search, setSearch]           = useState("");
   const [suggestions, setSuggestions] = useState([]);
-  const [showDrop, setShowDrop]   = useState(false);
-  const [selected, setSelected]   = useState(null);
-  const [strength, setStrength]   = useState("");
-  const [freq, setFreq]           = useState("BD");
-  const [duration, setDuration]   = useState("3 days");
-  const [timing, setTiming]       = useState("After food");
-  const [route, setRoute]         = useState("Oral");
-  const [items, setItems]         = useState([]);
-  const [notes, setNotes]         = useState(value?.notes||"");
+  const [showDrop, setShowDrop]       = useState(false);
+  const [selected, setSelected]       = useState(null);
+  const [strength, setStrength]       = useState("");
+  const [freq, setFreq]               = useState("BD");
+  const [duration, setDuration]       = useState("3 days");
+  const [timing, setTiming]           = useState("After food");
+  const [route, setRoute]             = useState("Oral");
+  const [qty, setQty]                 = useState("1 tablet");
+  const [items, setItems]             = useState([]);
+  const [notes, setNotes]             = useState(value?.notes || "");
+  const [catFilter, setCatFilter]     = useState("All");
   const searchRef = useRef(null);
 
-  // Parse existing items from value
+  // All unique categories from medicines list
+  const categories = ["All", ...Array.from(new Set(MEDICINES.map(m => m.category))).sort()];
+
   useEffect(() => {
     if (value?.items) setItems(value.items);
     if (value?.notes !== undefined) setNotes(value.notes);
   }, []);
 
-  // Notify parent on changes
-  useEffect(() => {
-    onChange({ items, notes });
-  }, [items, notes]);
+  useEffect(() => { onChange({ items, notes }); }, [items, notes]);
 
   const handleSearch = (q) => {
     setSearch(q);
     if (q.length < 2) { setSuggestions([]); setShowDrop(false); return; }
-    const filtered = MEDICINES.filter(m => m.name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+    const lower = q.toLowerCase();
+    const filtered = MEDICINES.filter(m =>
+      m.name.toLowerCase().includes(lower) ||
+      m.composition.toLowerCase().includes(lower) ||
+      m.brand.toLowerCase().includes(lower) ||
+      m.category.toLowerCase().includes(lower)
+    ).filter(m => catFilter === "All" || m.category === catFilter)
+     .slice(0, 10);
     setSuggestions(filtered);
     setShowDrop(true);
   };
@@ -583,6 +756,14 @@ function PrescriptionBuilder({ value, onChange }) {
     setSelected(med);
     setSearch(med.name);
     setStrength(med.strengths[0]);
+    // Auto-set route based on type
+    if (med.type.includes("Inhaler"))      setRoute("Inhaler");
+    else if (med.type.includes("Inj"))     setRoute("Injection");
+    else if (med.type.includes("Drops"))   setRoute("Eye/Ear Drops");
+    else if (med.type.includes("Nasal"))   setRoute("Nasal");
+    else if (med.type.includes("Cream") || med.type.includes("Gel") || med.type.includes("Lotion") || med.type.includes("Ointment")) setRoute("Topical");
+    else if (med.type.includes("Syp"))     setRoute("Oral Syrup");
+    else setRoute("Oral");
     setSuggestions([]);
     setShowDrop(false);
   };
@@ -592,94 +773,181 @@ function PrescriptionBuilder({ value, onChange }) {
     const item = {
       id: Date.now(),
       name: selected.name,
+      brand: selected.brand,
+      composition: selected.composition,
       type: selected.type,
+      category: selected.category,
       strength,
       freq,
       duration,
       timing,
       route,
+      qty,
     };
-    setItems(prev=>[...prev,item]);
-    setSearch(""); setSelected(null); setStrength(""); setFreq("BD"); setDuration("3 days"); setTiming("After food"); setRoute("Oral");
+    setItems(prev => [...prev, item]);
+    // Reset form
+    setSearch(""); setSelected(null); setStrength(""); setFreq("BD");
+    setDuration("3 days"); setTiming("After food"); setRoute("Oral"); setQty("1 tablet");
     searchRef.current?.focus();
   };
 
-  const removeItem = (id) => setItems(prev=>prev.filter(i=>i.id!==id));
+  const removeItem = (id) => setItems(prev => prev.filter(i => i.id !== id));
 
-  const freqLabel = (f) => FREQUENCIES.find(x=>x.id===f)?.desc || f;
+  const freqLabel = (f) => FREQUENCIES.find(x => x.id === f)?.desc || f;
+
+  // Qty options based on route
+  const getQtyOptions = (r) => {
+    if (!r) return ["1 tablet","2 tablets","½ tablet"];
+    if (r === "Oral Syrup")       return ["5mL","10mL","15mL","2.5mL"];
+    if (r === "Topical")          return ["Apply thin layer","Apply twice","As required"];
+    if (r === "Eye/Ear Drops")    return ["1 drop","2 drops","3 drops"];
+    if (r === "Nasal")            return ["1 spray each nostril","2 sprays each nostril"];
+    if (r === "Inhaler")          return ["1 puff","2 puffs"];
+    if (r === "Injection")        return ["0.5mL","1mL","As prescribed"];
+    return ["1 tablet","2 tablets","½ tablet","1 capsule","2 capsules"];
+  };
+
+  const categoryColors = {
+    "Pain/Fever":"#EF4444","Cold/Cough":"#3B82F6","Antibiotic":"#10B981",
+    "Cold/Allergy":"#8B5CF6","GI/Acidity":"#F59E0B","Diabetes":"#06B6D4",
+    "BP":"#EC4899","Asthma":"#14B8A6","Vitamins":"#84CC16","Thyroid":"#F97316",
+    "Skin":"#A78BFA","Eye":"#0891B2","Neuro/Psych":"#7C3AED","Cardiac":"#DC2626",
+    "Cholesterol":"#D97706","Antifungal":"#059669","Deworming":"#65A30D",
+    "Malaria":"#0D9488","Antiviral":"#7C3AED","Muscle Relaxant":"#9333EA",
+  };
+
+  const getCatColor = (cat) => {
+    for (const [key, val] of Object.entries(categoryColors)) {
+      if (cat?.includes(key.split("/")[0])) return val;
+    }
+    return "#6B7280";
+  };
 
   return (
     <div>
+      {/* Category Filter Pills */}
+      <div style={{ marginBottom:12 }}>
+        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:8,textTransform:"uppercase",letterSpacing:1 }}>
+          Filter by Category
+        </label>
+        <div style={{ display:"flex",gap:5,flexWrap:"wrap" }}>
+          {["All","Pain/Fever","Cold/Cough","Cold/Allergy","Antibiotic","GI/Acidity","GI/Nausea","Diabetes","BP","Cardiac","Cholesterol","Asthma","Vitamins","Iron/Anaemia","Thyroid","Skin","Eye","Ear","Deworming","Malaria","Antifungal","Antiviral","Neuro/Psych","Epilepsy","Muscle Relaxant","Paediatric","UTI","Pregnancy","Liver"].map(cat=>(
+            <button key={cat} onClick={()=>{setCatFilter(cat);setSearch("");setSuggestions([]);}}
+              style={{ padding:"4px 10px",borderRadius:20,fontSize:10,fontWeight:700,border:"none",cursor:"pointer",transition:"all .15s",
+                background:catFilter===cat?(getCatColor(cat)||"#14B8A6"):"rgba(255,255,255,.08)",
+                color:catFilter===cat?"#fff":"rgba(255,255,255,.6)" }}>
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Medicine Search */}
       <div style={{ position:"relative",marginBottom:14 }}>
-        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:8,textTransform:"uppercase",letterSpacing:1 }}>💊 Search Medicine</label>
+        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:8,textTransform:"uppercase",letterSpacing:1 }}>
+          🔍 Search Indian Brand / Generic / Composition
+        </label>
         <input ref={searchRef} value={search} onChange={e=>handleSearch(e.target.value)}
           onFocus={()=>search.length>=2&&setShowDrop(true)}
           onBlur={()=>setTimeout(()=>setShowDrop(false),200)}
-          placeholder="Type medicine name (e.g. Paracetamol, Amoxicillin…)" className="input-glass"
-          style={{ width:"100%",padding:"12px 14px",borderRadius:14,fontSize:14,border:"1px solid rgba(255,255,255,.2)" }}/>
+          placeholder="e.g. Cheston Cold, Dolo 650, Augmentin, Omez, Crocin…" className="input-glass"
+          style={{ width:"100%",padding:"13px 16px",borderRadius:14,fontSize:14,border:"1px solid rgba(255,255,255,.2)" }}/>
+
+        {/* Suggestions Dropdown */}
         {showDrop && suggestions.length > 0 && (
-          <div style={{ position:"absolute",top:"100%",left:0,right:0,zIndex:100,background:"rgba(5,13,31,.97)",border:"1px solid rgba(255,255,255,.15)",borderRadius:14,overflow:"hidden",boxShadow:"0 16px 48px rgba(0,0,0,.6)",marginTop:4 }}>
+          <div style={{ position:"absolute",top:"100%",left:0,right:0,zIndex:500,background:"rgba(5,13,31,.98)",border:"1px solid rgba(255,255,255,.15)",borderRadius:16,overflow:"hidden",boxShadow:"0 20px 60px rgba(0,0,0,.7)",marginTop:6 }}>
             {suggestions.map(med=>(
               <div key={med.name} className="med-suggestion" onMouseDown={()=>selectMed(med)}
-                style={{ padding:"10px 16px",cursor:"pointer",borderBottom:"1px solid rgba(255,255,255,.06)",transition:"background .15s" }}>
-                <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-                  <span style={{ fontSize:13,fontWeight:700,color:"#fff" }}>{med.name}</span>
-                  <span className="chip" style={{ background:"rgba(20,184,166,.15)",color:"#14B8A6",border:"1px solid rgba(20,184,166,.2)" }}>{med.type}</span>
+                style={{ padding:"12px 16px",cursor:"pointer",borderBottom:"1px solid rgba(255,255,255,.05)",transition:"background .15s" }}>
+                <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5 }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                    <span style={{ fontSize:14,fontWeight:900,color:"#fff" }}>{med.name}</span>
+                    <span style={{ fontSize:10,fontWeight:600,color:"rgba(255,255,255,.4)" }}>by {med.brand}</span>
+                  </div>
+                  <div style={{ display:"flex",gap:5,alignItems:"center" }}>
+                    <span className="chip" style={{ background:`${getCatColor(med.category)}25`,color:getCatColor(med.category),border:`1px solid ${getCatColor(med.category)}40` }}>{med.category}</span>
+                    <span className="chip" style={{ background:"rgba(255,255,255,.08)",color:"rgba(255,255,255,.6)" }}>{med.type}</span>
+                  </div>
                 </div>
-                <div style={{ display:"flex",gap:4,flexWrap:"wrap",marginTop:5 }}>
+                <p style={{ fontSize:11,color:"rgba(255,255,255,.5)",marginBottom:5 }}>{med.composition}</p>
+                <div style={{ display:"flex",gap:4,flexWrap:"wrap" }}>
                   {med.strengths.map(s=>(
-                    <span key={s} style={{ fontSize:10,color:"rgba(255,255,255,.5)",background:"rgba(255,255,255,.05)",padding:"2px 7px",borderRadius:10 }}>{s}</span>
+                    <span key={s} style={{ fontSize:10,color:"rgba(255,255,255,.5)",background:"rgba(255,255,255,.06)",padding:"2px 8px",borderRadius:10,border:"1px solid rgba(255,255,255,.1)" }}>{s}</span>
                   ))}
                 </div>
               </div>
             ))}
+            <div style={{ padding:"8px 16px",background:"rgba(255,255,255,.03)",borderTop:"1px solid rgba(255,255,255,.06)" }}>
+              <p style={{ fontSize:10,color:"rgba(255,255,255,.3)" }}>Showing {suggestions.length} results · Type more to refine</p>
+            </div>
+          </div>
+        )}
+
+        {/* No results */}
+        {showDrop && suggestions.length === 0 && search.length >= 2 && (
+          <div style={{ position:"absolute",top:"100%",left:0,right:0,zIndex:500,background:"rgba(5,13,31,.98)",border:"1px solid rgba(255,255,255,.1)",borderRadius:14,padding:"16px",marginTop:6,textAlign:"center" }}>
+            <p style={{ fontSize:13,color:"rgba(255,255,255,.4)" }}>No matches found for "{search}"</p>
+            <p style={{ fontSize:11,color:"rgba(255,255,255,.25)",marginTop:4 }}>Try searching by generic name or composition</p>
           </div>
         )}
       </div>
 
-      {/* Configure medicine if selected */}
+      {/* Configure Medicine */}
       {selected && (
-        <div className="fade-in" style={{ background:"rgba(20,184,166,.08)",border:"1px solid rgba(20,184,166,.25)",borderRadius:18,padding:16,marginBottom:14 }}>
-          <p style={{ fontSize:12,fontWeight:700,color:"#14B8A6",marginBottom:12 }}>⚙ Configure: <b style={{ color:"#fff" }}>{selected.name}</b></p>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10 }}>
+        <div className="fade-in" style={{ background:"rgba(20,184,166,.08)",border:"1px solid rgba(20,184,166,.25)",borderRadius:20,padding:18,marginBottom:14 }}>
+          {/* Medicine header */}
+          <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:14 }}>
+            <div>
+              <p style={{ fontSize:15,fontWeight:900,color:"#fff",marginBottom:2 }}>{selected.name}</p>
+              <p style={{ fontSize:11,color:"rgba(255,255,255,.5)" }}>{selected.brand} · {selected.composition}</p>
+              <div style={{ display:"flex",gap:5,marginTop:6 }}>
+                <span className="chip" style={{ background:`${getCatColor(selected.category)}25`,color:getCatColor(selected.category),border:`1px solid ${getCatColor(selected.category)}40` }}>{selected.category}</span>
+                <span className="chip" style={{ background:"rgba(255,255,255,.08)",color:"rgba(255,255,255,.6)" }}>{selected.type}</span>
+              </div>
+            </div>
+            <button onClick={()=>{setSelected(null);setSearch("");}} style={{ padding:"4px 10px",borderRadius:8,background:"rgba(239,68,68,.15)",border:"none",cursor:"pointer",color:"#F87171",fontSize:11,flexShrink:0 }}>✕ Cancel</button>
+          </div>
+
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12 }}>
             {/* Strength */}
             <div>
-              <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Strength</label>
+              <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Strength / Dose</label>
               <select value={strength} onChange={e=>setStrength(e.target.value)} className="select-glass"
-                style={{ width:"100%",padding:"9px 10px",borderRadius:10,fontSize:13 }}>
+                style={{ width:"100%",padding:"10px 12px",borderRadius:12,fontSize:13 }}>
                 {selected.strengths.map(s=><option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            {/* Route */}
+            {/* Quantity */}
             <div>
-              <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Route</label>
-              <select value={route} onChange={e=>setRoute(e.target.value)} className="select-glass"
-                style={{ width:"100%",padding:"9px 10px",borderRadius:10,fontSize:13 }}>
-                {ROUTES.map(r=><option key={r} value={r}>{r}</option>)}
+              <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Quantity / Dose</label>
+              <select value={qty} onChange={e=>setQty(e.target.value)} className="select-glass"
+                style={{ width:"100%",padding:"10px 12px",borderRadius:12,fontSize:13 }}>
+                {getQtyOptions(route).map(q=><option key={q} value={q}>{q}</option>)}
               </select>
             </div>
           </div>
+
           {/* Frequency */}
-          <div style={{ marginBottom:10 }}>
-            <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:.5 }}>Frequency</label>
+          <div style={{ marginBottom:12 }}>
+            <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:.5 }}>When to Take (Frequency)</label>
             <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
               {FREQUENCIES.map(f=>(
                 <button key={f.id} onClick={()=>setFreq(f.id)}
-                  style={{ padding:"6px 12px",borderRadius:10,fontSize:11,fontWeight:700,border:"none",cursor:"pointer",transition:"all .15s",
-                    background:freq===f.id?"linear-gradient(135deg,#14B8A6,#0891B2)":"rgba(255,255,255,.08)",
-                    color:"#fff" }}>
-                  {f.label}<span style={{ fontSize:9,opacity:.7,display:"block" }}>{f.desc}</span>
+                  style={{ padding:"8px 14px",borderRadius:12,fontSize:12,fontWeight:700,border:"none",cursor:"pointer",transition:"all .15s",textAlign:"center",
+                    background:freq===f.id?"linear-gradient(135deg,#14B8A6,#0891B2)":"rgba(255,255,255,.08)",color:"#fff" }}>
+                  <div>{f.label}</div>
+                  <div style={{ fontSize:9,opacity:.7,marginTop:2 }}>{f.desc}</div>
                 </button>
               ))}
             </div>
           </div>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12 }}>
+
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14 }}>
             {/* Duration */}
             <div>
               <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Duration</label>
               <select value={duration} onChange={e=>setDuration(e.target.value)} className="select-glass"
-                style={{ width:"100%",padding:"9px 10px",borderRadius:10,fontSize:13 }}>
+                style={{ width:"100%",padding:"10px 12px",borderRadius:12,fontSize:12 }}>
                 {DURATIONS.map(d=><option key={d} value={d}>{d}</option>)}
               </select>
             </div>
@@ -687,12 +955,31 @@ function PrescriptionBuilder({ value, onChange }) {
             <div>
               <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Timing</label>
               <select value={timing} onChange={e=>setTiming(e.target.value)} className="select-glass"
-                style={{ width:"100%",padding:"9px 10px",borderRadius:10,fontSize:13 }}>
+                style={{ width:"100%",padding:"10px 12px",borderRadius:12,fontSize:12 }}>
                 {TIMINGS.map(t=><option key={t} value={t}>{t}</option>)}
               </select>
             </div>
+            {/* Route */}
+            <div>
+              <label style={{ fontSize:10,color:"rgba(255,255,255,.5)",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:.5 }}>Route</label>
+              <select value={route} onChange={e=>{setRoute(e.target.value);setQty(getQtyOptions(e.target.value)[0]);}} className="select-glass"
+                style={{ width:"100%",padding:"10px 12px",borderRadius:12,fontSize:12 }}>
+                {ROUTES.map(r=><option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
           </div>
-          <button onClick={addItem} className="teal-btn" style={{ width:"100%",padding:"10px",borderRadius:12,fontSize:13 }}>
+
+          {/* Preview before adding */}
+          <div style={{ padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",marginBottom:12 }}>
+            <p style={{ fontSize:9,color:"rgba(255,255,255,.4)",textTransform:"uppercase",letterSpacing:.5,marginBottom:5 }}>Preview</p>
+            <p style={{ fontSize:12,fontFamily:"monospace",color:"rgba(255,255,255,.8)",lineHeight:1.6 }}>
+              {selected.name} {strength} — {qty}<br/>
+              {freq} ({freqLabel(freq)}) × {duration}<br/>
+              {timing} · {route}
+            </p>
+          </div>
+
+          <button onClick={addItem} className="teal-btn" style={{ width:"100%",padding:"11px",borderRadius:14,fontSize:13,fontWeight:700 }}>
             ➕ Add to Prescription
           </button>
         </div>
@@ -700,42 +987,71 @@ function PrescriptionBuilder({ value, onChange }) {
 
       {/* Prescription List */}
       {items.length > 0 && (
-        <div style={{ marginBottom:14 }}>
-          <p style={{ fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",textTransform:"uppercase",letterSpacing:.5,marginBottom:10 }}>📋 Prescription ({items.length} medicines)</p>
+        <div style={{ marginBottom:16 }}>
+          <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
+            <p style={{ fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",textTransform:"uppercase",letterSpacing:.5 }}>
+              💊 Prescription — {items.length} {items.length===1?"Medicine":"Medicines"}
+            </p>
+            <button onClick={()=>setItems([])} style={{ fontSize:10,color:"#F87171",background:"none",border:"none",cursor:"pointer",fontWeight:700 }}>Clear All</button>
+          </div>
+
           {items.map((item,i)=>(
-            <div key={item.id} className="rx-card">
+            <div key={item.id} className="rx-card fade-in">
               <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between" }}>
                 <div style={{ flex:1 }}>
+                  {/* Brand + Number */}
                   <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:5 }}>
-                    <span style={{ fontSize:14,fontWeight:900,color:"#fff" }}>{i+1}. {item.name}</span>
-                    <span className="chip" style={{ background:"rgba(20,184,166,.15)",color:"#14B8A6",border:"1px solid rgba(20,184,166,.25)" }}>{item.strength}</span>
-                    <span className="chip" style={{ background:"rgba(255,255,255,.08)",color:"rgba(255,255,255,.7)" }}>{item.route}</span>
+                    <div style={{ width:24,height:24,borderRadius:8,background:"linear-gradient(135deg,#14B8A6,#0891B2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,flexShrink:0 }}>{i+1}</div>
+                    <span style={{ fontSize:14,fontWeight:900,color:"#fff" }}>{item.name}</span>
+                    <span style={{ fontSize:10,color:"rgba(255,255,255,.4)" }}>by {item.brand}</span>
                   </div>
-                  <p style={{ fontSize:12,color:"rgba(255,255,255,.7)",lineHeight:1.6,fontFamily:"monospace" }}>
-                    {item.freq} × {item.duration} · {item.timing}
-                  </p>
-                  <p style={{ fontSize:10,color:"rgba(255,255,255,.4)",marginTop:3 }}>{freqLabel(item.freq)}</p>
+                  {/* Strength + Type */}
+                  <div style={{ display:"flex",gap:5,marginBottom:8,marginLeft:32 }}>
+                    <span className="chip" style={{ background:"rgba(20,184,166,.15)",color:"#14B8A6",border:"1px solid rgba(20,184,166,.25)" }}>{item.strength}</span>
+                    <span className="chip" style={{ background:"rgba(255,255,255,.08)",color:"rgba(255,255,255,.6)" }}>{item.route}</span>
+                    <span className="chip" style={{ background:`${getCatColor(item.category)}20`,color:getCatColor(item.category) }}>{item.category}</span>
+                  </div>
+                  {/* Sig Line — how doctors write it */}
+                  <div style={{ marginLeft:32,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)" }}>
+                    <p style={{ fontSize:12,fontFamily:"monospace",color:"rgba(255,255,255,.85)",lineHeight:1.7 }}>
+                      <b>{item.qty}</b> {item.freq} × {item.duration}<br/>
+                      <span style={{ fontSize:11,color:"rgba(255,255,255,.5)" }}>{item.timing} · {freqLabel(item.freq)}</span>
+                    </p>
+                  </div>
+                  {/* Composition */}
+                  <p style={{ fontSize:10,color:"rgba(255,255,255,.3)",marginTop:6,marginLeft:32 }}>{item.composition}</p>
                 </div>
                 <button onClick={()=>removeItem(item.id)}
-                  style={{ padding:"4px 8px",borderRadius:8,background:"rgba(239,68,68,.15)",border:"none",cursor:"pointer",color:"#F87171",fontSize:13,flexShrink:0,marginLeft:10 }}>✕</button>
+                  style={{ padding:"6px 10px",borderRadius:10,background:"rgba(239,68,68,.15)",border:"none",cursor:"pointer",color:"#F87171",fontSize:13,flexShrink:0,marginLeft:10 }}>✕</button>
               </div>
             </div>
           ))}
-          {/* Formatted text preview */}
-          <div style={{ padding:"12px 14px",borderRadius:12,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",marginTop:12 }}>
-            <p style={{ fontSize:9,color:"rgba(255,255,255,.4)",textTransform:"uppercase",letterSpacing:.5,marginBottom:8 }}>Formatted Prescription Preview</p>
-            <p style={{ fontSize:12,fontFamily:"monospace",lineHeight:1.9,color:"rgba(255,255,255,.8)",whiteSpace:"pre-wrap" }}>
-              {items.map((item,i)=>`${i+1}. ${item.name} ${item.strength} (${item.route})\n   ${item.freq} × ${item.duration} — ${item.timing}`).join("\n")}
-            </p>
+
+          {/* Formatted Prescription for Print */}
+          <div style={{ padding:"14px 16px",borderRadius:14,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.1)",marginTop:14 }}>
+            <p style={{ fontSize:9,color:"rgba(255,255,255,.4)",textTransform:"uppercase",letterSpacing:.5,marginBottom:10 }}>📄 Formatted Prescription</p>
+            {items.map((item,i)=>(
+              <div key={item.id} style={{ marginBottom:10,paddingBottom:10,borderBottom:i<items.length-1?"1px solid rgba(255,255,255,.06)":"none" }}>
+                <p style={{ fontSize:12,fontWeight:700,color:"#fff",fontFamily:"monospace" }}>
+                  {i+1}. {item.name} {item.strength} ({item.brand})
+                </p>
+                <p style={{ fontSize:11,color:"rgba(255,255,255,.65)",fontFamily:"monospace",marginTop:2 }}>
+                  &nbsp;&nbsp;&nbsp;{item.qty} {item.freq} × {item.duration} — {item.timing}
+                </p>
+                <p style={{ fontSize:10,color:"rgba(255,255,255,.3)",fontFamily:"monospace",marginTop:1 }}>
+                  &nbsp;&nbsp;&nbsp;[{item.composition}]
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* Additional Notes */}
       <div>
-        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:6,textTransform:"uppercase",letterSpacing:1 }}>📝 Additional Notes / Instructions</label>
+        <label style={{ display:"block",fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",marginBottom:6,textTransform:"uppercase",letterSpacing:1 }}>📝 Additional Instructions</label>
         <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3}
-          placeholder="Advised rest for 3 days. Drink plenty of fluids. Follow-up in 1 week if not improving…" className="input-glass"
+          placeholder="Advised rest for 3 days. Drink plenty of fluids. Follow-up in 1 week if symptoms persist. Avoid spicy food…" className="input-glass"
           style={{ width:"100%",padding:"12px 14px",borderRadius:14,fontSize:13,resize:"vertical",lineHeight:1.6,border:"1px solid rgba(255,255,255,.2)" }}/>
       </div>
     </div>
