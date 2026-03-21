@@ -692,10 +692,7 @@ function StaffLogin({ onLogin, onSuccess }) {
         <button onClick={login} disabled={loading} className="teal-btn" style={{ width:"100%",padding:"14px",borderRadius:14,fontSize:15,fontWeight:900 }}>
           {loading?"Verifying…":"Login →"}
         </button>
-        <p style={{ fontSize:11,color:"rgba(255,255,255,.3)",textAlign:"center",marginTop:14,lineHeight:1.8 }}>
-          Default: <span style={{ color:"#F5A623",fontWeight:700 }}>uphc2024</span><br/>
-          Change via <span style={{ color:"#14B8A6" }}>STAFF_PASSWORD</span> in Vercel
-        </p>
+        
       </GCard>
     </div>
   );
@@ -1594,14 +1591,7 @@ function BookView({ t, lang, setView, activeDepts }) {
           <GCard style={{ textAlign:"center" }}>
             <div style={{ width:64,height:64,borderRadius:20,background:"linear-gradient(135deg,rgba(99,102,241,.3),rgba(139,92,246,.3))",border:"1px solid rgba(139,92,246,.4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 16px" }}>📱</div>
             <p style={{ fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:6 }}>{t.s1sent} <b style={{ color:"#fff" }}>+91-{mobile}</b></p>
-            <div style={{ display:"inline-flex",alignItems:"center",gap:10,background:"rgba(245,166,35,.12)",border:"1px solid rgba(245,166,35,.35)",padding:"10px 20px",borderRadius:16,marginBottom:22 }}>
-              <span style={{ fontSize:12,color:"rgba(255,255,255,.7)",fontWeight:600 }}>Demo OTP:</span>
-              <div style={{ display:"flex",gap:4 }}>
-                {["1","2","3","4","5","6"].map((d,i)=>(
-                  <div key={i} style={{ width:28,height:32,borderRadius:8,background:"rgba(245,166,35,.2)",border:"1px solid rgba(245,166,35,.4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:900,color:"#F5A623" }}>{d}</div>
-                ))}
-              </div>
-            </div>
+            
             <div style={{ display:"flex",gap:8,justifyContent:"center",marginBottom:14 }}>
               {otp.map((v,i)=>(
                 <input key={i} ref={el=>otpRef.current[i]=el} type="tel" maxLength={1} value={v}
